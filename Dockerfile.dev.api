@@ -16,6 +16,7 @@ RUN npm ci
 # Copy source files (will be overridden by volume in docker-compose)
 COPY packages/spec ./packages/spec
 COPY apps/api ./apps/api
+COPY spec-rules ./spec-rules
 COPY tsconfig.base.json ./
 
 WORKDIR /app/apps/api

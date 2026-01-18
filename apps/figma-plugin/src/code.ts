@@ -1,23 +1,36 @@
 // Type definitions (inline to avoid module system)
 type DesignSpecLayout = "vertical" | "horizontal";
 
+interface DesignSpecBorder {
+  color: string;
+  width: number;
+}
+
 interface DesignSpecFrame {
   name: string;
   width: number;
+  height?: number;
   layout: DesignSpecLayout;
   gap: number;
   padding: number;
+  background?: string;
+  borderRadius?: number;
+  border?: DesignSpecBorder;
 }
 
 interface DesignSpecTextNode {
   type: "text";
   content: string;
   fontSize?: number;
+  color?: string;
 }
 
 interface DesignSpecButtonNode {
   type: "button";
   label: string;
+  background?: string;
+  textColor?: string;
+  borderRadius?: number;
 }
 
 interface DesignSpecContainerNode {
@@ -26,6 +39,9 @@ interface DesignSpecContainerNode {
   gap: number;
   padding: number;
   children: DesignSpecNode[];
+  background?: string;
+  borderRadius?: number;
+  border?: DesignSpecBorder;
 }
 
 type DesignSpecNode = DesignSpecTextNode | DesignSpecButtonNode | DesignSpecContainerNode;
@@ -186,9 +202,45 @@ const pluginHtml = `<!DOCTYPE html>
 
 const DEFAULT_FONT = { family: "Inter", style: "Regular" };
 const DEFAULT_FONT_SIZE = 16;
-const BUTTON_BACKGROUND = { r: 0.094, g: 0.627, b: 0.984 }; // #18a0fb
+
+// Visual defaults for readability - MUST use fills property
+const TEXT_COLOR_DEFAULT = { r: 0.07, g: 0.07, b: 0.07 }; // Dark text color
+const BUTTON_BACKGROUND = { r: 0.145, g: 0.388, b: 0.922 }; // Blue button background
+const BUTTON_TEXT_COLOR = { r: 1, g: 1, b: 1 }; // White button text
 const BUTTON_PADDING = 12;
 const BUTTON_CORNER_RADIUS = 8;
+const CONTAINER_BACKGROUND = { r: 1, g: 1, b: 1 }; // White container background
+const CONTAINER_CORNER_RADIUS = 12;
+
+/**
+ * Converts hex color string to RGB color object.
+ * Supports formats: "#RGB", "#RRGGBB"
+ */
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const cleaned = hex.replace("#", "");
+  if (cleaned.length === 3) {
+    // Expand shorthand: #RGB -> #RRGGBB
+    const r = Number.parseInt(cleaned[0] + cleaned[0], 16) / 255;
+    const g = Number.parseInt(cleaned[1] + cleaned[1], 16) / 255;
+    const b = Number.parseInt(cleaned[2] + cleaned[2], 16) / 255;
+    return { r, g, b };
+  }
+  // Full format: #RRGGBB
+  const r = Number.parseInt(cleaned.substring(0, 2), 16) / 255;
+  const g = Number.parseInt(cleaned.substring(2, 4), 16) / 255;
+  const b = Number.parseInt(cleaned.substring(4, 6), 16) / 255;
+  return { r, g, b };
+}
+
+/**
+ * Applies border to a frame using correct Figma API: strokes, strokeWeight, strokeAlign
+ */
+function applyBorder(frame: FrameNode, border: DesignSpecBorder): void {
+  const rgb = hexToRgb(border.color);
+  frame.strokes = [{ type: "SOLID", color: rgb }];
+  frame.strokeWeight = border.width;
+  frame.strokeAlign = "INSIDE"; // Standard for input borders
+}
 
 async function loadFont(family: string, style: string): Promise<FontName> {
   const fontName: FontName = { family, style };
@@ -196,16 +248,28 @@ async function loadFont(family: string, style: string): Promise<FontName> {
   return fontName;
 }
 
-async function createTextNode(content: string, fontSize?: number): Promise<TextNode> {
+async function createTextNode(
+  content: string,
+  fontSize?: number,
+  color?: string,
+): Promise<TextNode> {
   const fontName = await loadFont(DEFAULT_FONT.family, DEFAULT_FONT.style);
   const textNode = figma.createText();
   textNode.fontName = fontName;
   textNode.fontSize = fontSize ?? DEFAULT_FONT_SIZE;
   textNode.characters = content;
+  // Apply text color from spec or default - MUST use fills property
+  const textColor = color ? hexToRgb(color) : TEXT_COLOR_DEFAULT;
+  textNode.fills = [{ type: "SOLID", color: textColor }];
   return textNode;
 }
 
-async function createButtonNode(label: string): Promise<FrameNode> {
+async function createButtonNode(
+  label: string,
+  background?: string,
+  textColor?: string,
+  borderRadius?: number,
+): Promise<FrameNode> {
   const buttonFrame = figma.createFrame();
   buttonFrame.name = label;
   buttonFrame.layoutMode = "HORIZONTAL";
@@ -215,11 +279,15 @@ async function createButtonNode(label: string): Promise<FrameNode> {
   buttonFrame.paddingRight = BUTTON_PADDING;
   buttonFrame.paddingTop = BUTTON_PADDING;
   buttonFrame.paddingBottom = BUTTON_PADDING;
-  buttonFrame.cornerRadius = BUTTON_CORNER_RADIUS;
-  buttonFrame.fills = [{ type: "SOLID", color: BUTTON_BACKGROUND }];
+  buttonFrame.cornerRadius = borderRadius ?? BUTTON_CORNER_RADIUS;
+  // Apply background fill from spec or default - MUST use fills property
+  const bgColor = background ? hexToRgb(background) : BUTTON_BACKGROUND;
+  buttonFrame.fills = [{ type: "SOLID", color: bgColor }];
 
-  const textNode = await createTextNode(label);
-  textNode.fills = [{ type: "SOLID", color: { r: 1, g: 1, b: 1 } }]; // White text
+  const btnTextColor = textColor ? hexToRgb(textColor) : BUTTON_TEXT_COLOR;
+  const textNode = await createTextNode(label, undefined, textColor);
+  // Apply button text color - MUST use fills property
+  textNode.fills = [{ type: "SOLID", color: btnTextColor }];
   buttonFrame.appendChild(textNode);
 
   return buttonFrame;
@@ -236,6 +304,15 @@ async function createContainerNode(container: DesignSpecContainerNode): Promise<
   containerFrame.paddingRight = container.padding;
   containerFrame.paddingTop = container.padding;
   containerFrame.paddingBottom = container.padding;
+  containerFrame.cornerRadius = container.borderRadius ?? CONTAINER_CORNER_RADIUS;
+  // Apply background fill from spec or default - MUST use fills property
+  const bgColor = container.background ? hexToRgb(container.background) : CONTAINER_BACKGROUND;
+  containerFrame.fills = [{ type: "SOLID", color: bgColor }];
+
+  // Apply border using correct Figma API: strokes, strokeWeight, strokeAlign
+  if (container.border) {
+    applyBorder(containerFrame, container.border);
+  }
 
   for (const childNode of container.children) {
     const node = await createNode(childNode);
@@ -247,10 +324,10 @@ async function createContainerNode(container: DesignSpecContainerNode): Promise<
 
 async function createNode(node: DesignSpecNode): Promise<SceneNode> {
   if (node.type === "text") {
-    return await createTextNode(node.content, node.fontSize);
+    return await createTextNode(node.content, node.fontSize, node.color);
   }
   if (node.type === "button") {
-    return await createButtonNode(node.label);
+    return await createButtonNode(node.label, node.background, node.textColor, node.borderRadius);
   }
   if (node.type === "container") {
     return await createContainerNode(node);
@@ -267,15 +344,39 @@ async function executeSpec(spec: DesignSpec): Promise<void> {
     // Create root frame
     const frame = figma.createFrame();
     frame.name = spec.frame.name;
-    frame.resize(spec.frame.width, 0); // Height will be auto-calculated
     frame.layoutMode = spec.frame.layout === "vertical" ? "VERTICAL" : "HORIZONTAL";
-    frame.primaryAxisSizingMode = "FIXED";
-    frame.counterAxisSizingMode = "AUTO";
+    
+    // Set sizing modes based on whether height is specified
+    const hasFixedHeight = spec.frame.height !== undefined;
+    if (spec.frame.layout === "vertical") {
+      // Vertical layout: primary axis is vertical
+      frame.primaryAxisSizingMode = hasFixedHeight ? "FIXED" : "AUTO";
+      frame.counterAxisSizingMode = "FIXED"; // Width is always fixed
+    } else {
+      // Horizontal layout: primary axis is horizontal
+      frame.primaryAxisSizingMode = "FIXED"; // Width is always fixed
+      frame.counterAxisSizingMode = hasFixedHeight ? "FIXED" : "AUTO";
+    }
+    
+    // Set dimensions using resize() - required when using FIXED sizing modes
+    const frameHeight = spec.frame.height ?? 0; // 0 means auto-calculate
+    frame.resize(spec.frame.width, frameHeight);
+    
     frame.itemSpacing = spec.frame.gap;
     frame.paddingLeft = spec.frame.padding;
     frame.paddingRight = spec.frame.padding;
     frame.paddingTop = spec.frame.padding;
     frame.paddingBottom = spec.frame.padding;
+    frame.cornerRadius = spec.frame.borderRadius ?? CONTAINER_CORNER_RADIUS;
+    
+    // Apply background fill from spec or default - MUST use fills property
+    const bgColor = spec.frame.background ? hexToRgb(spec.frame.background) : CONTAINER_BACKGROUND;
+    frame.fills = [{ type: "SOLID", color: bgColor }];
+
+    // Apply border using correct Figma API: strokes, strokeWeight, strokeAlign
+    if (spec.frame.border) {
+      applyBorder(frame, spec.frame.border);
+    }
 
     // Create child nodes
     for (const nodeSpec of spec.nodes) {

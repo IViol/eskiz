@@ -1,0 +1,31 @@
+{
+  "name": "devices",
+  "description": "Screen geometry defaults for mobile / tablet / desktop",
+  "mobile": {
+    "width": "~375–400px",
+    "height": "800px",
+    "rules": [
+      "Use mobile-first layout (width ~375–400px, height 800px)",
+      "Prioritize vertical hierarchy with clear spacing",
+      "Use larger spacing between elements (16–24px)"
+    ]
+  },
+  "tablet": {
+    "width": "~768px",
+    "height": "900px",
+    "rules": [
+      "Use tablet layout (width ~768px, height 900px)",
+      "Balance vertical and horizontal organization",
+      "Use medium spacing between elements (16–20px)"
+    ]
+  },
+  "desktop": {
+    "width": "~1200px",
+    "height": "900px",
+    "rules": [
+      "Use desktop layout (width ~1200px, height 900px)",
+      "Support wider layouts but maintain structure",
+      "Use consistent spacing (16–24px)"
+    ]
+  }
+}

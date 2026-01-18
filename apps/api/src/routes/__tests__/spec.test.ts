@@ -122,4 +122,101 @@ describe("POST /spec", () => {
     expect(response.body).toHaveProperty("error", "Internal server error");
     expect(response.body).toHaveProperty("message", "Unknown error");
   });
+
+  it("accepts generationContext with visualBaseline and strictLayout", async () => {
+    const mockSpec = {
+      page: "Test Page",
+      frame: {
+        name: "Test Frame",
+        width: 400,
+        layout: "vertical" as const,
+        gap: 16,
+        padding: 24,
+      },
+      nodes: [{ type: "text" as const, content: "Test content" }],
+    };
+
+    mockGenerateDesignSpec.mockResolvedValue(mockSpec);
+
+    const response = await request(app)
+      .post("/spec")
+      .send({
+        prompt: "Create a form",
+        generationContext: {
+          targetLayout: "mobile",
+          uiStrictness: "strict",
+          uxPatterns: {
+            groupElements: true,
+            formContainer: true,
+            helperText: false,
+          },
+          visualBaseline: true,
+          strictLayout: false,
+        },
+      })
+      .expect(200);
+
+    expect(response.body).toEqual(mockSpec);
+    expect(mockGenerateDesignSpec).toHaveBeenCalledWith(
+      {
+        prompt: "Create a form",
+        generationContext: {
+          targetLayout: "mobile",
+          uiStrictness: "strict",
+          uxPatterns: {
+            groupElements: true,
+            formContainer: true,
+            helperText: false,
+          },
+          visualBaseline: true,
+          strictLayout: false,
+        },
+      },
+      false,
+    );
+  });
+
+  it("rejects invalid visualBaseline type", async () => {
+    const response = await request(app)
+      .post("/spec")
+      .send({
+        prompt: "Create a form",
+        generationContext: {
+          targetLayout: "mobile",
+          uiStrictness: "strict",
+          uxPatterns: {
+            groupElements: true,
+            formContainer: true,
+            helperText: false,
+          },
+          visualBaseline: "yes", // invalid: should be boolean
+        },
+      })
+      .expect(400);
+
+    expect(response.body).toHaveProperty("error", "Invalid request");
+    expect(mockGenerateDesignSpec).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid strictLayout type", async () => {
+    const response = await request(app)
+      .post("/spec")
+      .send({
+        prompt: "Create a form",
+        generationContext: {
+          targetLayout: "mobile",
+          uiStrictness: "strict",
+          uxPatterns: {
+            groupElements: true,
+            formContainer: true,
+            helperText: false,
+          },
+          strictLayout: 1, // invalid: should be boolean
+        },
+      })
+      .expect(400);
+
+    expect(response.body).toHaveProperty("error", "Invalid request");
+    expect(mockGenerateDesignSpec).not.toHaveBeenCalled();
+  });
 });

@@ -1,0 +1,15 @@
+{
+  "name": "visual-baseline",
+  "description": "Default visual rules used when user does not specify styles",
+  "rules": [
+    "Visual defaults (wireframe-level presentation):",
+    "Form/card containers: background \"#FFFFFF\", borderRadius 12",
+    "Input-like containers: background \"#FFFFFF\", border { color: \"#D1D5DB\", width: 1 }",
+    "Buttons: background \"#2563EB\", textColor \"#FFFFFF\", borderRadius 8",
+    "Primary text: color \"#111111\"",
+    "Placeholder/helper text: color \"#6B7280\"",
+    "ALWAYS include these visual properties explicitly in the DesignSpec JSON",
+    "Do NOT rely on the Figma plugin to infer styles",
+    "Apply defaults unless user explicitly specifies different styles"
+  ]
+}

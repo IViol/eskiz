@@ -101,16 +101,19 @@ describe("generateDesignSpec", () => {
     const result = await generateDesignSpec({ prompt: "Create a welcome page" }, false);
 
     expect(result).toEqual(validSpec);
-    expect(mockChatCompletionsCreate).toHaveBeenCalledWith({
-      model: "gpt-4o-mini",
+    // gpt-5-nano doesn't support temperature parameter
+    expect(mockChatCompletionsCreate).toHaveBeenCalled();
+    const callArgs = mockChatCompletionsCreate.mock.calls[0]?.[0];
+    expect(callArgs).toMatchObject({
+      model: "gpt-5-nano",
       messages: [
-        { role: "system", content: expect.stringContaining("UI layout generator") },
+        { role: "system", content: expect.stringContaining("DesignSpecs for real application UIs") },
         { role: "assistant", content: expect.stringContaining("DesignSpec JSON structure") },
         { role: "user", content: "Create a welcome page" },
-      ],
+      },
       response_format: { type: "json_object" },
-      temperature: 0.3,
     });
+    expect(callArgs).not.toHaveProperty("temperature");
   });
 
   it("throws error when OpenAI returns empty content", async () => {

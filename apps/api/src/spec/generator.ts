@@ -3,6 +3,7 @@ import type { DesignSpec, GenerationContext, PromptRequest } from "@eskiz/spec";
 import OpenAI from "openai";
 import { getEnv } from "../config/env.js";
 import { logger } from "../logger.js";
+import { assembleSystemPrompt } from "./prompt/assembleSystemPrompt.js";
 
 const env = getEnv();
 const openai = new OpenAI({
@@ -17,111 +18,177 @@ const DEFAULT_GENERATION_CONTEXT: GenerationContext = {
     formContainer: true,
     helperText: false,
   },
+  visualBaseline: true,
+  strictLayout: false,
 };
 
-function buildSystemPrompt(context: GenerationContext): string {
-  const basePrompt = `You are a UI layout generator.
+/**
+ * Builds the system prompt using the rule-based assembly system
+ */
+function buildSystemPrompt(context: GenerationContext, userPrompt: string): string {
+  return assembleSystemPrompt({
+    userPrompt,
+    targetLayout: context.targetLayout,
+    uiStrictness: context.uiStrictness,
+    visualBaseline: context.visualBaseline ?? true,
+    strictLayout: context.strictLayout ?? false,
+    uxPatterns: context.uxPatterns,
+  });
+}
 
-Your task is to generate a DesignSpec for UI layouts that follows basic UX and visual design principles.
+/**
+ * Visual defaults for wireframe-level presentation
+ */
+const VISUAL_DEFAULTS = {
+  containerBackground: "#FFFFFF",
+  containerBorderRadius: 12,
+  inputBorder: { color: "#D1D5DB", width: 1 },
+  buttonBackground: "#2563EB",
+  buttonTextColor: "#FFFFFF",
+  buttonBorderRadius: 8,
+  primaryTextColor: "#111111",
+  placeholderTextColor: "#6B7280",
+} as const;
 
-ALWAYS apply the following rules:`;
+/**
+ * Determines if a container represents an input field based on its structure.
+ * Input containers typically have border and contain placeholder text.
+ */
+function isInputContainer(node: DesignSpec["nodes"][number]): boolean {
+  if (node.type !== "container") return false;
+  // Check if container has border (indicates input)
+  if (node.border) return true;
+  // Check if container has placeholder-like text children
+  const hasPlaceholderText = node.children.some(
+    (child) =>
+      child.type === "text" &&
+      (child.content.toLowerCase().includes("enter") ||
+        child.content.toLowerCase().includes("placeholder")),
+  );
+  return hasPlaceholderText;
+}
 
-  const layoutRules = [];
-  if (context.targetLayout === "mobile") {
-    layoutRules.push(
-      "- Use mobile-first layout (width ~360–400px)",
-      "- Prioritize vertical hierarchy with clear spacing",
-      "- Use larger spacing between elements (16–24px)",
-    );
-  } else if (context.targetLayout === "tablet") {
-    layoutRules.push(
-      "- Use tablet layout (width ~600–800px)",
-      "- Balance vertical and horizontal organization",
-      "- Use medium spacing between elements (16–20px)",
-    );
-  } else {
-    // desktop
-    layoutRules.push(
-      "- Use desktop layout (width ~800–1200px)",
-      "- Support wider layouts but maintain structure",
-      "- Use consistent spacing (16–24px)",
-    );
+/**
+ * Determines if text is placeholder/helper text based on content.
+ */
+function isPlaceholderText(node: DesignSpec["nodes"][number]): boolean {
+  if (node.type !== "text") return false;
+  const content = node.content.toLowerCase();
+  return (
+    content.includes("enter") ||
+    content.includes("placeholder") ||
+    content.includes("hint") ||
+    content.includes("helper")
+  );
+}
+
+/**
+ * Ensures all text nodes have non-empty content.
+ * Replaces empty text content with placeholder text to prevent Auto Layout collapse.
+ */
+function ensureNonEmptyTextContent(spec: DesignSpec): DesignSpec {
+  const placeholderTexts = [
+    "Enter your email",
+    "Enter password",
+    "Enter value",
+    "Enter text",
+    "Placeholder",
+  ];
+  let placeholderIndex = 0;
+
+  function fixNode(node: DesignSpec["nodes"][number]): DesignSpec["nodes"][number] {
+    if (node.type === "text") {
+      // Replace empty content with placeholder
+      if (!node.content || node.content.trim() === "") {
+        const placeholder = placeholderTexts[placeholderIndex % placeholderTexts.length];
+        placeholderIndex++;
+        return { ...node, content: placeholder };
+      }
+      return node;
+    }
+    if (node.type === "container") {
+      return {
+        ...node,
+        children: node.children.map(fixNode),
+      };
+    }
+    return node;
   }
 
-  const strictnessRules = [];
-  if (context.uiStrictness === "strict") {
-    strictnessRules.push(
-      "- Use explicit containers for all grouped elements",
-      "- Maintain clear visual hierarchy",
-      "- Do not add extra decorative or supporting text unless explicitly requested",
-    );
-  } else {
-    // balanced
-    strictnessRules.push(
-      "- Use containers for grouping",
-      "- Allow headers or supporting text if relevant to the prompt",
-      "- Balance structure with content needs",
-    );
+  return {
+    ...spec,
+    nodes: spec.nodes.map(fixNode),
+  };
+}
+
+/**
+ * Applies visual defaults to DesignSpec if properties are missing.
+ * Ensures wireframe-level presentation is always visible.
+ */
+function applyVisualDefaults(
+  spec: DesignSpec,
+  targetLayout: GenerationContext["targetLayout"],
+): DesignSpec {
+  // Default dimensions based on target layout
+  const defaultDimensions = {
+    mobile: { width: 400, height: 800 },
+    tablet: { width: 768, height: 900 },
+    desktop: { width: 1200, height: 900 },
+  };
+  const dimensions = defaultDimensions[targetLayout];
+
+  // Apply defaults to root frame
+  const frame: DesignSpec["frame"] = {
+    ...spec.frame,
+    height: spec.frame.height ?? dimensions.height,
+    background: spec.frame.background ?? VISUAL_DEFAULTS.containerBackground,
+    borderRadius: spec.frame.borderRadius ?? VISUAL_DEFAULTS.containerBorderRadius,
+  };
+
+  function applyNodeDefaults(node: DesignSpec["nodes"][number]): DesignSpec["nodes"][number] {
+    if (node.type === "text") {
+      // Apply text color defaults
+      const color =
+        node.color ??
+        (isPlaceholderText(node)
+          ? VISUAL_DEFAULTS.placeholderTextColor
+          : VISUAL_DEFAULTS.primaryTextColor);
+      return { ...node, color };
+    }
+
+    if (node.type === "button") {
+      // Apply button defaults
+      return {
+        ...node,
+        background: node.background ?? VISUAL_DEFAULTS.buttonBackground,
+        textColor: node.textColor ?? VISUAL_DEFAULTS.buttonTextColor,
+        borderRadius: node.borderRadius ?? VISUAL_DEFAULTS.buttonBorderRadius,
+      };
+    }
+
+    if (node.type === "container") {
+      const isInput = isInputContainer(node);
+      // Apply container defaults
+      const container: DesignSpec["nodes"][number] = {
+        ...node,
+        background: node.background ?? VISUAL_DEFAULTS.containerBackground,
+        borderRadius:
+          node.borderRadius ??
+          (isInput ? undefined : VISUAL_DEFAULTS.containerBorderRadius),
+        border: node.border ?? (isInput ? VISUAL_DEFAULTS.inputBorder : undefined),
+        children: node.children.map(applyNodeDefaults),
+      };
+      return container;
+    }
+
+    return node;
   }
 
-  const uxPatternRules = [];
-  if (context.uxPatterns.groupElements) {
-    uxPatternRules.push(
-      "- Group related elements in containers",
-      "- Use logical grouping (e.g. form fields together)",
-    );
-  }
-  if (context.uxPatterns.formContainer) {
-    uxPatternRules.push(
-      "- Wrap all form elements in a dedicated form container",
-      "- Form containers must have clear padding and spacing",
-    );
-  }
-  if (context.uxPatterns.helperText) {
-    uxPatternRules.push(
-      "- Include helper or hint text where appropriate",
-      "- Helper text should be smaller and placed near relevant elements",
-    );
-  }
-
-  return `${basePrompt}
-
-1. Layout & hierarchy
-- Every screen must have a single root container (frame)
-- Content must be vertically structured with clear spacing
-${layoutRules.map((r) => `- ${r}`).join("\n")}
-
-2. Forms
-- Inputs are NOT plain text
-- Represent each input as:
-  - a container (frame) with padding
-  - a label text above or inside
-${context.uxPatterns.formContainer ? "- Group form elements inside a form container" : "- Organize form elements logically"}
-
-3. Spacing
-- Use consistent vertical spacing between elements
-- Minimum spacing between form fields: 12–16px
-- Padding inside containers: at least 16–24px
-
-4. Buttons
-- Buttons must be visually distinguishable
-- Represent buttons as a container with background and label
-- Buttons must have padding and clear size
-
-5. UI Strictness
-${strictnessRules.map((r) => `- ${r}`).join("\n")}
-
-6. UX Patterns
-${uxPatternRules.length > 0 ? uxPatternRules.map((r) => `- ${r}`).join("\n") : "- Follow standard UX practices"}
-
-7. Do NOT:
-- Place raw text elements directly on the canvas without layout
-- Create isolated elements without visual grouping
-- Assume "designer intuition" — be explicit in structure
-
-Your output must be a valid DesignSpec JSON only.
-No explanations.
-No markdown.`;
+  return {
+    ...spec,
+    frame,
+    nodes: spec.nodes.map(applyNodeDefaults),
+  };
 }
 
 const ASSISTANT_PROMPT = `The DesignSpec JSON structure:
@@ -131,48 +198,144 @@ const ASSISTANT_PROMPT = `The DesignSpec JSON structure:
   "frame": {
     "name": "string (frame name)",
     "width": number (positive integer, typically 360-400 for mobile-first),
+    "height": number (positive integer, REQUIRED - 800 for mobile, 900 for tablet/desktop),
     "layout": "vertical" | "horizontal",
     "gap": number (non-negative integer, spacing between nodes, typically 12-16),
-    "padding": number (non-negative integer, internal padding, typically 16-24)
+    "padding": number (non-negative integer, internal padding, typically 16-24),
+    "background": "string (hex color, optional, default: "#FFFFFF" for containers)",
+    "borderRadius": number (non-negative integer, optional, default: 12 for containers)",
+    "border": { "color": "string (hex color)", "width": number } (optional, for input containers)
   },
   "nodes": [
-    { "type": "text", "content": "string", "fontSize": number (optional, typically 14-20) },
-    { "type": "button", "label": "string" },
+    {
+      "type": "text",
+      "content": "string",
+      "fontSize": number (optional, typically 14-20),
+      "color": "string (hex color, optional, default: "#111111" for primary, "#6B7280" for placeholder)"
+    },
+    {
+      "type": "button",
+      "label": "string",
+      "background": "string (hex color, optional, default: "#2563EB")",
+      "textColor": "string (hex color, optional, default: "#FFFFFF")",
+      "borderRadius": number (optional, default: 8)
+    },
     {
       "type": "container",
       "layout": "vertical" | "horizontal",
       "gap": number (spacing between children),
       "padding": number (internal padding),
+      "background": "string (hex color, optional, default: "#FFFFFF")",
+      "borderRadius": number (optional, default: 12 for form/card containers)",
+      "border": { "color": "string (hex color)", "width": number } (optional, for input containers: color "#D1D5DB", width 1),
       "children": [Node...] (array of child nodes, can be nested)
     }
   ]
 }
 
-Example for a login form:
+Example for a login form (centered layout with proper rhythm):
 {
   "page": "Login",
   "frame": {
-    "name": "Login Form",
+    "name": "Login Screen",
     "width": 400,
+    "height": 800,
     "layout": "vertical",
-    "gap": 24,
-    "padding": 24
+    "gap": 0,
+    "padding": 0,
+    "background": "#F9FAFB"
   },
   "nodes": [
-    { "type": "text", "content": "Login", "fontSize": 20 },
     {
       "type": "container",
       "layout": "vertical",
-      "gap": 12,
-      "padding": 16,
+      "gap": 0,
+      "padding": 24,
+      "background": "#F9FAFB",
       "children": [
-        { "type": "text", "content": "Email", "fontSize": 14 },
-        { "type": "text", "content": "Password", "fontSize": 14 }
+        {
+          "type": "container",
+          "layout": "vertical",
+          "gap": 32,
+          "padding": 24,
+          "background": "#FFFFFF",
+          "borderRadius": 12,
+          "children": [
+            { "type": "text", "content": "Login", "fontSize": 24, "color": "#111111" },
+            {
+              "type": "container",
+              "layout": "vertical",
+              "gap": 20,
+              "padding": 0,
+              "children": [
+                {
+                  "type": "container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 0,
+                  "children": [
+                    { "type": "text", "content": "Email", "fontSize": 14, "color": "#111111" },
+                    {
+                      "type": "container",
+                      "layout": "vertical",
+                      "gap": 0,
+                      "padding": 12,
+                      "background": "#FFFFFF",
+                      "border": { "color": "#D1D5DB", "width": 1 },
+                      "borderRadius": 8,
+                      "children": [
+                        { "type": "text", "content": "Enter your email", "fontSize": 14, "color": "#6B7280" }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": 0,
+                  "children": [
+                    { "type": "text", "content": "Password", "fontSize": 14, "color": "#111111" },
+                    {
+                      "type": "container",
+                      "layout": "vertical",
+                      "gap": 0,
+                      "padding": 12,
+                      "background": "#FFFFFF",
+                      "border": { "color": "#D1D5DB", "width": 1 },
+                      "borderRadius": 8,
+                      "children": [
+                        { "type": "text", "content": "Enter password", "fontSize": 14, "color": "#6B7280" }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "layout": "vertical",
+              "gap": 0,
+              "padding": 0,
+              "children": [
+                { "type": "button", "label": "Sign In", "background": "#2563EB", "textColor": "#FFFFFF", "borderRadius": 8 }
+              ]
+            }
+          ]
+        }
       ]
-    },
-    { "type": "button", "label": "Submit" }
+    }
   ]
-}`;
+}
+
+Note: This example shows:
+- Root frame with light background (#F9FAFB)
+- Centered form card (white background, rounded corners)
+- Title with larger fontSize (24) and spacing (32px gap after title)
+- Field group with consistent rhythm (label→input gap: 8px, between fields: 20px)
+- Actions container separated from fields (32px gap before actions)
+- Inputs fill the form width
+- Button in separate actions container`;
 
 export async function generateDesignSpec(
   request: PromptRequest,
@@ -187,41 +350,66 @@ export async function generateDesignSpec(
 
   if (dryRun) {
     logger.info({ requestId }, "Dry run mode - returning mock spec");
-    return {
+    const mockSpec: DesignSpec = {
       page: "Mock Page",
       frame: {
         name: "Mock Frame",
         width: 400,
+        height: 800,
         layout: "vertical",
         gap: 16,
         padding: 24,
+        background: "#FFFFFF",
+        borderRadius: 12,
       },
       nodes: [
-        { type: "text", content: "Mock content", fontSize: 16 },
+        { type: "text", content: "Mock content", fontSize: 16, color: "#111111" },
         {
           type: "container",
           layout: "vertical",
           gap: 12,
           padding: 16,
-          children: [{ type: "text", content: "Nested text", fontSize: 14 }],
+          background: "#FFFFFF",
+          borderRadius: 12,
+          children: [{ type: "text", content: "Nested text", fontSize: 14, color: "#111111" }],
         },
-        { type: "button", label: "Mock Button" },
+        {
+          type: "button",
+          label: "Mock Button",
+          background: "#2563EB",
+          textColor: "#FFFFFF",
+          borderRadius: 8,
+        },
       ],
     };
+    return applyVisualDefaults(mockSpec, generationContext.targetLayout);
   }
 
   try {
-    const systemPrompt = buildSystemPrompt(generationContext);
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+    const systemPrompt = buildSystemPrompt(generationContext, request.prompt);
+    const model = "gpt-5-nano";
+
+    // Some models (like gpt-5-nano) don't support custom temperature values
+    // Only include temperature if the model supports it
+    const modelsWithoutTemperature = ["gpt-5-nano"];
+    const modelSupportsTemperature = !modelsWithoutTemperature.includes(model);
+
+    const baseRequestOptions = {
+      model,
       messages: [
-        { role: "system", content: systemPrompt },
-        { role: "assistant", content: ASSISTANT_PROMPT },
-        { role: "user", content: request.prompt },
+        { role: "system" as const, content: systemPrompt },
+        { role: "assistant" as const, content: ASSISTANT_PROMPT },
+        { role: "user" as const, content: request.prompt },
       ],
-      response_format: { type: "json_object" },
-      temperature: 0.3,
-    });
+      response_format: { type: "json_object" as const },
+    };
+
+    // Only add temperature if model supports it
+    const requestOptions = modelSupportsTemperature
+      ? { ...baseRequestOptions, temperature: 0.3 }
+      : baseRequestOptions;
+
+    const completion = await openai.chat.completions.create(requestOptions);
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
@@ -247,8 +435,14 @@ export async function generateDesignSpec(
       throw new Error(`Invalid DesignSpec: ${validationResult.error.message}`);
     }
 
-    logger.info({ requestId, spec: validationResult.data }, "DesignSpec generated successfully");
-    return validationResult.data;
+    // Ensure all text nodes have non-empty content to prevent Auto Layout collapse
+    let fixedSpec = ensureNonEmptyTextContent(validationResult.data);
+
+    // Apply visual defaults to ensure wireframe-level presentation
+    fixedSpec = applyVisualDefaults(fixedSpec, generationContext.targetLayout);
+
+    logger.info({ requestId, spec: fixedSpec }, "DesignSpec generated successfully");
+    return fixedSpec;
   } catch (error) {
     logger.error({ requestId, error }, "Error generating DesignSpec");
     throw error;

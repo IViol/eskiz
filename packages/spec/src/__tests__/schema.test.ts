@@ -22,6 +22,109 @@ describe("promptRequestSchema", () => {
     const result = promptRequestSchema.safeParse(invalid);
     expect(result.success).toBe(false);
   });
+
+  it("should validate prompt request with full generationContext", () => {
+    const valid = {
+      prompt: "Create a login form",
+      generationContext: {
+        targetLayout: "mobile" as const,
+        uiStrictness: "strict" as const,
+        uxPatterns: {
+          groupElements: true,
+          formContainer: true,
+          helperText: false,
+        },
+        visualBaseline: true,
+        strictLayout: false,
+      },
+    };
+    const result = promptRequestSchema.safeParse(valid);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.generationContext?.visualBaseline).toBe(true);
+      expect(result.data.generationContext?.strictLayout).toBe(false);
+    }
+  });
+
+  it("should validate prompt request with optional visualBaseline and strictLayout", () => {
+    const valid = {
+      prompt: "Create a form",
+      generationContext: {
+        targetLayout: "tablet" as const,
+        uiStrictness: "balanced" as const,
+        uxPatterns: {
+          groupElements: false,
+          formContainer: false,
+          helperText: true,
+        },
+        visualBaseline: false,
+        strictLayout: true,
+      },
+    };
+    const result = promptRequestSchema.safeParse(valid);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.generationContext?.visualBaseline).toBe(false);
+      expect(result.data.generationContext?.strictLayout).toBe(true);
+    }
+  });
+
+  it("should accept prompt request without visualBaseline and strictLayout", () => {
+    const valid = {
+      prompt: "Create a form",
+      generationContext: {
+        targetLayout: "desktop" as const,
+        uiStrictness: "strict" as const,
+        uxPatterns: {
+          groupElements: true,
+          formContainer: true,
+          helperText: false,
+        },
+      },
+    };
+    const result = promptRequestSchema.safeParse(valid);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.generationContext?.visualBaseline).toBeUndefined();
+      expect(result.data.generationContext?.strictLayout).toBeUndefined();
+    }
+  });
+
+  it("should reject invalid visualBaseline type", () => {
+    const invalid = {
+      prompt: "Create a form",
+      generationContext: {
+        targetLayout: "mobile" as const,
+        uiStrictness: "strict" as const,
+        uxPatterns: {
+          groupElements: true,
+          formContainer: true,
+          helperText: false,
+        },
+        visualBaseline: "yes", // should be boolean
+      },
+    };
+    const result = promptRequestSchema.safeParse(invalid);
+    expect(result.success).toBe(false);
+  });
+
+  it("should reject invalid strictLayout type", () => {
+    const invalid = {
+      prompt: "Create a form",
+      generationContext: {
+        targetLayout: "mobile" as const,
+        uiStrictness: "strict" as const,
+        uxPatterns: {
+          groupElements: true,
+          formContainer: true,
+          helperText: false,
+        },
+        strictLayout: 1, // should be boolean
+      },
+    };
+    const result = promptRequestSchema.safeParse(invalid);
+    expect(result.success).toBe(false);
+  });
 });
 
 describe("designSpecSchema", () => {
