@@ -1,0 +1,31 @@
+{
+  "name": "@eskiz/api",
+  "version": "0.1.0",
+  "description": "Eskiz API server for DesignSpec generation",
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "test": "vitest run --passWithNoTests",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@eskiz/spec": "*",
+    "express": "^4.18.2",
+    "openai": "^4.20.1",
+    "pino": "^8.17.2",
+    "pino-http": "^8.5.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.11.5",
+    "@types/supertest": "^6.0.2",
+    "pino-pretty": "^10.3.1",
+    "supertest": "^6.3.3",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.1"
+  }
+}

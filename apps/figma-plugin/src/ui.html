@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Eskiz Executor</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: Inter, sans-serif;
+        font-size: 12px;
+        padding: 16px;
+        color: #333;
+      }
+
+      .container {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      label {
+        font-weight: 500;
+        display: block;
+        margin-bottom: 4px;
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 200px;
+        padding: 8px;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
+        font-family: "Courier New", monospace;
+        font-size: 11px;
+        resize: vertical;
+      }
+
+      textarea:focus {
+        outline: none;
+        border-color: #18a0fb;
+      }
+
+      button {
+        width: 100%;
+        padding: 8px 16px;
+        background: #18a0fb;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background: #1592e6;
+      }
+
+      button:active {
+        background: #0f7fc7;
+      }
+
+      button:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+      }
+
+      .error {
+        padding: 8px;
+        background: #ffebee;
+        border: 1px solid #f44336;
+        border-radius: 4px;
+        color: #c62828;
+        font-size: 11px;
+        display: none;
+      }
+
+      .error.visible {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div>
+        <label for="spec-input">DesignSpec JSON:</label>
+        <textarea id="spec-input" placeholder='{"page": "Login", "frame": {...}, "nodes": [...]}'></textarea>
+      </div>
+      <button id="apply-btn">Apply</button>
+      <div id="error" class="error"></div>
+    </div>
+
+    <script>
+      const specInput = document.getElementById("spec-input");
+      const applyBtn = document.getElementById("apply-btn");
+      const errorDiv = document.getElementById("error");
+
+      function showError(message) {
+        errorDiv.textContent = message;
+        errorDiv.classList.add("visible");
+      }
+
+      function hideError() {
+        errorDiv.classList.remove("visible");
+      }
+
+      applyBtn.addEventListener("click", () => {
+        hideError();
+        const jsonText = specInput.value.trim();
+
+        if (!jsonText) {
+          showError("Please enter a DesignSpec JSON");
+          return;
+        }
+
+        let spec;
+        try {
+          spec = JSON.parse(jsonText);
+        } catch (e) {
+          showError(`Invalid JSON: ${e.message}`);
+          return;
+        }
+
+        applyBtn.disabled = true;
+        applyBtn.textContent = "Applying...";
+
+        parent.postMessage({ pluginMessage: { type: "apply", spec } }, "*");
+      });
+
+      window.onmessage = (event) => {
+        const msg = event.data.pluginMessage;
+        if (msg.type === "error") {
+          showError(msg.message);
+          applyBtn.disabled = false;
+          applyBtn.textContent = "Apply";
+        } else if (msg.type === "success") {
+          // Plugin will close automatically
+        }
+      };
+    </script>
+  </body>
+</html>

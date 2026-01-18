@@ -1,0 +1,47 @@
+version: '3.8'
+
+# Development Docker Compose configuration
+# For local development with hot reload
+# DO NOT use in production
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev.api
+    ports:
+      - "4000:4000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PORT=4000
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    env_file:
+      - .env
+    volumes:
+      - ./packages/spec:/app/packages/spec
+      - ./apps/api:/app/apps/api
+      - ./tsconfig.base.json:/app/tsconfig.base.json
+      - /app/node_modules
+      - /app/packages/spec/node_modules
+      - /app/apps/api/node_modules
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev.web
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://api:4000
+    volumes:
+      - ./packages/spec:/app/packages/spec
+      - ./apps/web:/app/apps/web
+      - ./tsconfig.base.json:/app/tsconfig.base.json
+      - /app/node_modules
+      - /app/packages/spec/node_modules
+      - /app/apps/web/node_modules
+    depends_on:
+      - api
+    restart: unless-stopped

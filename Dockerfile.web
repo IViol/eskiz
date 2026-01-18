@@ -1,0 +1,48 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copy root package files
+COPY package.json ./
+COPY package-lock.json* ./
+
+# Copy workspace package files
+COPY packages/spec/package.json ./packages/spec/
+COPY apps/web/package.json ./apps/web/
+
+# Install dependencies
+RUN npm ci
+
+# Copy source files
+COPY packages/spec ./packages/spec
+COPY apps/web ./apps/web
+COPY tsconfig.base.json ./
+
+# Build packages
+RUN npm run build --workspace=packages/spec
+
+# Build web app
+RUN npm run build --workspace=apps/web
+
+FROM nginx:alpine
+
+COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
+
+# Configure nginx to proxy API requests
+RUN echo 'server { \
+    listen 80; \
+    root /usr/share/nginx/html; \
+    index index.html; \
+    location / { \
+        try_files $uri $uri/ /index.html; \
+    } \
+    location /api { \
+        proxy_pass http://api:3000; \
+        proxy_set_header Host $host; \
+        proxy_set_header X-Real-IP $remote_addr; \
+    } \
+}' > /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

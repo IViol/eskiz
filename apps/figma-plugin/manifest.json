@@ -1,0 +1,11 @@
+{
+  "name": "eskiz executor",
+  "id": "eskiz",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "editorType": ["figma", "dev"],
+  "capabilities": ["inspect"],
+  "networkAccess": {
+    "allowedDomains": ["none"]
+  }
+}

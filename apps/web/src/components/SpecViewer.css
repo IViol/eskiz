@@ -1,0 +1,141 @@
+.spec-viewer {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  width: 100%;
+  margin-top: var(--spacing-lg);
+}
+
+.spec-viewer-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  cursor: pointer;
+  transition: background-color 0.2s;
+  background: var(--color-bg);
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  width: 100%;
+  text-align: left;
+}
+
+.spec-viewer-header:hover {
+  background: var(--color-surface);
+}
+
+.spec-viewer-header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-sm);
+}
+
+.spec-viewer-header h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.spec-viewer-chevron {
+  transition: transform 0.2s;
+  flex-shrink: 0;
+  color: var(--color-text-secondary);
+}
+
+.spec-viewer-chevron.open {
+  transform: rotate(180deg);
+}
+
+.spec-viewer-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  width: 100%;
+}
+
+.spec-viewer-actions button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  width: 100%;
+}
+
+.spec-viewer-content-wrapper {
+  overflow: hidden;
+}
+
+.spec-viewer-content-wrapper[data-state="open"] {
+  animation: slideDown 0.2s ease-out;
+}
+
+.spec-viewer-content-wrapper[data-state="closed"] {
+  animation: slideUp 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    height: 0;
+    opacity: 0;
+  }
+  to {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+  }
+  to {
+    height: 0;
+    opacity: 0;
+  }
+}
+
+.spec-viewer-content {
+  padding: var(--spacing-md);
+  background: var(--color-bg-secondary);
+  margin: 0;
+  max-height: 400px;
+  overflow-y: auto;
+  overflow-x: auto;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+@media (min-width: 768px) {
+  .spec-viewer-content {
+    max-height: 500px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .spec-viewer-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .spec-viewer-header-content {
+    flex: 1;
+  }
+
+  .spec-viewer-actions {
+    flex-direction: row;
+    width: auto;
+    margin-left: var(--spacing-md);
+  }
+
+  .spec-viewer-actions button {
+    width: auto;
+  }
+
+  .spec-viewer-content {
+    max-height: 600px;
+  }
+}

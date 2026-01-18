@@ -1,0 +1,16 @@
+{
+  "name": "@eskiz/figma-plugin",
+  "version": "0.1.0",
+  "description": "Figma plugin for executing DesignSpecs",
+  "type": "module",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@eskiz/spec": "*"
+  },
+  "devDependencies": {
+    "@figma/plugin-typings": "^1.79.0",
+    "typescript": "^5.3.3"
+  }
+}

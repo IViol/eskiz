@@ -1,0 +1,12 @@
+node_modules/
+.npm-cache/
+dist/
+build/
+*.log
+.env
+.DS_Store
+coverage/
+*.tsbuildinfo
+test-results/
+playwright-report/
+playwright/.cache/

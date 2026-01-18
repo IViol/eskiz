@@ -1,0 +1,33 @@
+{
+  "name": "eskiz",
+  "version": "0.1.0",
+  "description": "Monorepo for Eskiz - DesignSpec generation and execution",
+  "author": "Ivan Violentov",
+  "homepage": "https://violentov.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IViol/eskiz"
+  },
+  "type": "module",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "npm run dev --workspaces",
+    "dev:docker": "docker-compose -f docker-compose.dev.yml up",
+    "dev:docker:down": "docker-compose -f docker-compose.dev.yml down",
+    "dev:docker:build": "docker-compose -f docker-compose.dev.yml build",
+    "dev:docker:rebuild": "docker-compose -f docker-compose.dev.yml build --no-cache",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:e2e": "playwright test --config=e2e/playwright.config.ts",
+    "lint": "biome check .",
+    "format": "biome format --write ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.7.3",
+    "@playwright/test": "^1.40.1",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
