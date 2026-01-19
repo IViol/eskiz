@@ -3,12 +3,12 @@ import type { DesignSpec, GenerationContext, PromptRequest } from "@eskiz/spec";
 import OpenAI from "openai";
 import { getEnv } from "../config/env.js";
 import { createChildSpan, getTracingContext } from "../context/tracing.js";
-import { getContextLogger } from "../utils/logger.js";
+import { checkBudgetAlerts } from "../utils/budgetAlerts.js";
 import { computeHash, computeObjectHash } from "../utils/hash.js";
+import { getContextLogger } from "../utils/logger.js";
+import { makeOpenAIRequestWithRetry } from "../utils/openaiRetry.js";
 import { analyzeSpec } from "../utils/specAnalysis.js";
 import { aggregateWarnings } from "../utils/warningsAggregation.js";
-import { makeOpenAIRequestWithRetry } from "../utils/openaiRetry.js";
-import { checkBudgetAlerts } from "../utils/budgetAlerts.js";
 import { assembleSystemPrompt } from "./prompt/assembleSystemPrompt.js";
 import { validateVisualUsage } from "./validation/validateVisualUsage.js";
 
@@ -433,11 +433,7 @@ export async function generateDesignSpec(
     const model = "gpt-5-nano";
 
     // Compute final prompt hash (system + assistant + user)
-    const finalPrompt = [
-      systemPrompt,
-      ASSISTANT_PROMPT,
-      request.prompt,
-    ].join("\n");
+    const finalPrompt = [systemPrompt, ASSISTANT_PROMPT, request.prompt].join("\n");
     const finalPromptHash = computeHash(finalPrompt);
 
     // Some models (like gpt-5-nano) don't support custom temperature values

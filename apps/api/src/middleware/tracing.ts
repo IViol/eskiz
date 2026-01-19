@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { createTracingContext, runWithTracingContext } from "../context/tracing.js";
 import { extractUserContext, setSessionIdHeader } from "../context/user.js";
 

@@ -1,6 +1,6 @@
 import type pino from "pino";
-import { logger } from "../logger.js";
 import { getTracingContext } from "../context/tracing.js";
+import { logger } from "../logger.js";
 
 /**
  * Gets a logger instance with tracing context automatically included

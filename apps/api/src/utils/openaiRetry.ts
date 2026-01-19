@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import type OpenAI from "openai";
 import type { ChatCompletionCreateParams } from "openai/resources/chat/completions";
 import { getEnv } from "../config/env.js";
 
@@ -40,9 +40,7 @@ function isRetryableError(error: unknown): boolean {
   if (error instanceof Error) {
     const message = error.message.toLowerCase();
     return (
-      message.includes("timeout") ||
-      message.includes("econnreset") ||
-      message.includes("etimedout")
+      message.includes("timeout") || message.includes("econnreset") || message.includes("etimedout")
     );
   }
 
@@ -90,9 +88,11 @@ export async function makeOpenAIRequestWithRetry(
       if (completion && typeof completion === "object") {
         // Try to get request_id from response headers or metadata
         // OpenAI SDK v4+ may expose this in different ways
-        const response = (completion as unknown as {
-          _response?: { headers?: Headers | Record<string, string> };
-        })._response;
+        const response = (
+          completion as unknown as {
+            _response?: { headers?: Headers | Record<string, string> };
+          }
+        )._response;
 
         if (response?.headers) {
           if (response.headers instanceof Headers) {
@@ -138,7 +138,7 @@ export async function makeOpenAIRequestWithRetry(
       }
 
       // Calculate exponential backoff delay
-      const delayMs = baseRetryMs * Math.pow(2, attempt);
+      const delayMs = baseRetryMs * 2 ** attempt;
       retryCount++;
 
       // Wait before retry
@@ -150,7 +150,8 @@ export async function makeOpenAIRequestWithRetry(
   return {
     completion: null as unknown as ChatCompletion,
     retryCount,
-    outcome: lastError instanceof Error && lastError.message.includes("timeout") ? "timeout" : "error",
+    outcome:
+      lastError instanceof Error && lastError.message.includes("timeout") ? "timeout" : "error",
     openaiRequestId: null,
   };
 }

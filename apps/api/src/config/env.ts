@@ -5,7 +5,10 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
   // Logging and security
-  LOG_HASH_SECRET: z.string().min(1, "LOG_HASH_SECRET is required").default("change-me-in-production"),
+  LOG_HASH_SECRET: z
+    .string()
+    .min(1, "LOG_HASH_SECRET is required")
+    .default("change-me-in-production"),
   LOG_DEBUG_PAYLOADS: z.coerce.boolean().default(false),
   // OpenAI configuration
   OPENAI_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),

@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Request, Response } from "express";
-import { tracingMiddleware } from "../tracing.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getTracingContext } from "../../context/tracing.js";
 import { extractUserContext } from "../../context/user.js";
+import { tracingMiddleware } from "../tracing.js";
 
 vi.mock("../../context/user.js", () => ({
   extractUserContext: vi.fn(),
@@ -44,7 +44,7 @@ describe("tracingMiddleware", () => {
   });
 
   it("generates new traceId if requestId is not present", () => {
-    delete mockReq.id;
+    mockReq.id = undefined;
     tracingMiddleware(mockReq as Request, mockRes as Response, mockNext);
 
     const context = getTracingContext();

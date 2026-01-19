@@ -67,11 +67,7 @@ export function extractUserContext(req: Request): UserContext {
 /**
  * Sets sessionId in response header if it was generated
  */
-export function setSessionIdHeader(
-  req: Request,
-  res: Response,
-  userContext: UserContext,
-): void {
+export function setSessionIdHeader(req: Request, res: Response, userContext: UserContext): void {
   // If sessionId was generated (not from cookie/header), set it in response
   const cookieSessionId = req.headers.cookie
     ?.split(";")

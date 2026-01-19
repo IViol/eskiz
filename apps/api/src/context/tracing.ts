@@ -21,10 +21,7 @@ export function getTracingContext(): TracingContext | undefined {
 /**
  * Runs a function within a tracing context
  */
-export function runWithTracingContext<T>(
-  context: TracingContext,
-  fn: () => T,
-): T {
+export function runWithTracingContext<T>(context: TracingContext, fn: () => T): T {
   return asyncLocalStorage.run(context, fn);
 }
 
@@ -66,11 +63,7 @@ export function createChildSpan(context: TracingContext): TracingContext {
 /**
  * Runs a function with a new child span
  */
-export function runWithSpan<T>(
-  context: TracingContext,
-  spanId: string,
-  fn: () => T,
-): T {
+export function runWithSpan<T>(context: TracingContext, spanId: string, fn: () => T): T {
   return asyncLocalStorage.run({ ...context, spanId }, fn);
 }
 

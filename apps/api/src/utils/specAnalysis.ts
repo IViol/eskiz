@@ -71,16 +71,16 @@ export function analyzeSpec(spec: DesignSpec): SpecAnalysis {
 
     if (node.type === "container") {
       const container = node as ContainerNode;
-      container.children.forEach((child) => {
+      for (const child of container.children) {
         traverseNode(child, currentDepth + 1);
-      });
+      }
     }
   }
 
   // Traverse all root nodes
-  spec.nodes.forEach((node) => {
+  for (const node of spec.nodes) {
     traverseNode(node, 1);
-  });
+  }
 
   return {
     nodes_count: nodesCount,

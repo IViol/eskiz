@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { checkBudgetAlerts } from "../budgetAlerts.js";
-import { runWithTracingContext, createTracingContext } from "../../context/tracing.js";
-import { logger } from "../../logger.js";
 import { getEnv } from "../../config/env.js";
+import { createTracingContext, runWithTracingContext } from "../../context/tracing.js";
+import { logger } from "../../logger.js";
+import { checkBudgetAlerts } from "../budgetAlerts.js";
 
 vi.mock("../../logger.js", () => ({
   logger: {

@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { logger } from "../logger.js";
 import { createServer } from "../server.js";
 import * as generatorModule from "../spec/generator.js";
-import { logger } from "../logger.js";
 
 // Mock generator to avoid actual OpenAI calls
 vi.mock("../spec/generator.js");
@@ -75,10 +75,7 @@ describe("Observability Integration Tests", () => {
   });
 
   it("sets x-session-id header when sessionId is generated", async () => {
-    const response = await request(app)
-      .post("/spec")
-      .send({ prompt: "test" })
-      .expect(200);
+    const response = await request(app).post("/spec").send({ prompt: "test" }).expect(200);
 
     // If sessionId was generated, it should be in response header
     // Note: This depends on implementation - may need adjustment

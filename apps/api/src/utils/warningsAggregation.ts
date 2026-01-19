@@ -17,20 +17,18 @@ export function aggregateWarnings(
 
   // Extract unique warning types
   const typeSet = new Set<string>();
-  warnings.forEach((warning) => {
+  for (const warning of warnings) {
     // Use reason as type identifier (normalized)
     const type = warning.reason.includes("layout-only")
       ? "visual_styling_on_layout_container"
       : "unknown_warning";
     typeSet.add(type);
-  });
+  }
 
   const warningsTypes = Array.from(typeSet);
 
   // Sample paths (first N)
-  const warningsPathsSample = warnings
-    .slice(0, pathsSampleSize)
-    .map((warning) => warning.path);
+  const warningsPathsSample = warnings.slice(0, pathsSampleSize).map((warning) => warning.path);
 
   return {
     warnings_count: warningsCount,

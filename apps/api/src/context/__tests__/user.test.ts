@@ -1,7 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Request } from "express";
-import { extractUserContext } from "../user.js";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getEnv } from "../../config/env.js";
+import { extractUserContext } from "../user.js";
 
 vi.mock("../../config/env.js", () => ({
   getEnv: vi.fn(),

@@ -1,6 +1,6 @@
-import { logger } from "../logger.js";
-import { getTracingContext } from "../context/tracing.js";
 import { getEnv } from "../config/env.js";
+import { getTracingContext } from "../context/tracing.js";
+import { logger } from "../logger.js";
 
 const env = getEnv();
 

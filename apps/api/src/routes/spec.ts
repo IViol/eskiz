@@ -1,7 +1,7 @@
 import { promptRequestSchema } from "@eskiz/spec";
 import type { Request, Response } from "express";
-import { getContextLogger } from "../utils/logger.js";
 import { generateDesignSpec } from "../spec/generator.js";
+import { getContextLogger } from "../utils/logger.js";
 
 export async function handleSpecRequest(req: Request, res: Response): Promise<void> {
   const log = getContextLogger();
