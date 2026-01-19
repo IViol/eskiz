@@ -9,6 +9,14 @@ vi.mock("../../config/env.js", () => ({
     OPENAI_API_KEY: "test-key",
     PORT: 3000,
     LOG_LEVEL: "info",
+    LOG_HASH_SECRET: "test-secret",
+    LOG_DEBUG_PAYLOADS: false,
+    OPENAI_TIMEOUT_MS: 30000,
+    OPENAI_RETRY_MAX: 2,
+    OPENAI_RETRY_BASE_MS: 1000,
+    BUDGET_MAX_TOKENS: 8000,
+    BUDGET_MAX_DURATION_MS: 8000,
+    BUDGET_MAX_COMPLETION_RATIO: 3.0,
   }),
 }));
 vi.mock("../../logger.js", () => {
@@ -29,6 +37,52 @@ vi.mock("pino-http", () => ({
       next();
     };
   }),
+}));
+
+vi.mock("../../context/tracing.js", async () => {
+  const actual = await vi.importActual<typeof import("../../context/tracing.js")>(
+    "../../context/tracing.js",
+  );
+  return {
+    ...actual,
+  };
+});
+
+vi.mock("../../middleware/tracing.js", async () => {
+  const tracing = await import("../../context/tracing.js");
+  return {
+    tracingMiddleware: (_req: unknown, _res: unknown, next: () => void) => {
+      // Set up a test tracing context
+      const context = tracing.createTracingContext(
+        undefined,
+        "test-project",
+        "test-user-id",
+        "test-session-id",
+      );
+      tracing.runWithTracingContext(context, () => {
+        next();
+      });
+    },
+  };
+});
+
+vi.mock("../../context/user.js", () => ({
+  extractUserContext: vi.fn(() => ({
+    projectId: "test-project",
+    sessionId: "test-session-id",
+    userId: "test-user-id",
+  })),
+  setSessionIdHeader: vi.fn(),
+}));
+
+vi.mock("../../utils/logger.js", () => ({
+  getContextLogger: vi.fn(() => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+    child: vi.fn().mockReturnThis(),
+  })),
 }));
 
 const mockGenerateDesignSpec = vi.mocked(generatorModule.generateDesignSpec);
