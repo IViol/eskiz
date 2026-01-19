@@ -286,6 +286,8 @@ Note: Production Docker setup (`docker-compose.yml`) uses optimized multi-stage 
 
 The DesignSpec is a JSON object with the following structure:
 
+**Important:** See [`packages/spec/CONTAINER_MODEL.md`](./packages/spec/CONTAINER_MODEL.md) for the conceptual model distinguishing Layout Containers from Surface Containers. This distinction is critical for correct spec generation.
+
 ```typescript
 {
   page: string;           // Page name

@@ -38,6 +38,10 @@
     "Do NOT create isolated elements without visual grouping",
     "Do NOT assume \"designer intuition\" — be explicit in structure",
     "Do NOT generate empty text content under any circumstances",
-    "Do NOT leave root frame height undefined"
+    "Do NOT leave root frame height undefined",
+    "Container styling rules:",
+    "  * Layout containers (for grouping, spacing, centering) MUST NOT have background, borderRadius, or border properties",
+    "  * Only card-like containers, input containers, and buttons should have visual styling",
+    "  * A container that exists purely for layout should be transparent and unstyled"
   ]
 }

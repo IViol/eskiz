@@ -4,6 +4,7 @@ import OpenAI from "openai";
 import { getEnv } from "../config/env.js";
 import { logger } from "../logger.js";
 import { assembleSystemPrompt } from "./prompt/assembleSystemPrompt.js";
+import { validateVisualUsage } from "./validation/validateVisualUsage.js";
 
 const env = getEnv();
 const openai = new OpenAI({
@@ -344,7 +345,13 @@ export async function generateDesignSpec(
   const requestId = crypto.randomUUID();
   const generationContext = request.generationContext ?? DEFAULT_GENERATION_CONTEXT;
   logger.info(
-    { requestId, prompt: request.prompt, generationContext, dryRun },
+    {
+      requestId,
+      event: "designspec.generation.start",
+      prompt_length_chars: request.prompt.length,
+      generationContext,
+      dryRun,
+    },
     "Generating DesignSpec",
   );
 
@@ -409,27 +416,174 @@ export async function generateDesignSpec(
       ? { ...baseRequestOptions, temperature: 0.3 }
       : baseRequestOptions;
 
-    const completion = await openai.chat.completions.create(requestOptions);
+    // Calculate request characteristics for logging
+    const messages = requestOptions.messages;
+    const promptLength = messages.reduce(
+      (sum, msg) => sum + (typeof msg.content === "string" ? msg.content.length : 0),
+      0,
+    );
+    const requestStartTime = Date.now();
+
+    // Log request start
+    logger.debug(
+      {
+        requestId,
+        event: "openai.request.start",
+        model: requestOptions.model,
+        messages_count: messages.length,
+        prompt_length_chars: promptLength,
+        temperature: "temperature" in requestOptions ? requestOptions.temperature : undefined,
+        max_tokens: "max_tokens" in requestOptions ? requestOptions.max_tokens : undefined,
+      },
+      "Starting OpenAI API request",
+    );
+
+    let completion;
+    let requestEndTime: number;
+    let durationMs: number;
+
+    try {
+      completion = await openai.chat.completions.create(requestOptions);
+      requestEndTime = Date.now();
+      durationMs = requestEndTime - requestStartTime;
+
+      // Extract token usage from response
+      const usage = completion.usage;
+      const tokenInfo = usage
+        ? {
+            prompt_tokens: usage.prompt_tokens,
+            completion_tokens: usage.completion_tokens,
+            total_tokens: usage.total_tokens,
+          }
+        : {};
+
+      // Log successful request
+      const logData = {
+        requestId,
+        event: "openai.request",
+        model: requestOptions.model,
+        duration_ms: durationMs,
+        request_start_time: requestStartTime,
+        request_end_time: requestEndTime,
+        messages_count: messages.length,
+        prompt_length_chars: promptLength,
+        temperature: "temperature" in requestOptions ? requestOptions.temperature : undefined,
+        max_tokens: "max_tokens" in requestOptions ? requestOptions.max_tokens : undefined,
+        ...tokenInfo,
+      };
+
+      // Log as warning if slow, otherwise info
+      if (durationMs > 3000) {
+        logger.warn(
+          {
+            ...logData,
+            slow_request: true,
+            threshold_ms: 3000,
+          },
+          "Slow OpenAI request detected",
+        );
+      } else {
+        logger.info(logData, "OpenAI request completed");
+      }
+    } catch (openaiError: unknown) {
+      requestEndTime = Date.now();
+      durationMs = requestEndTime - requestStartTime;
+
+      // Extract error information
+      const errorInfo: {
+        error_message: string;
+        error_type: string;
+        http_status?: number;
+        retryable?: boolean;
+      } = {
+        error_message: openaiError instanceof Error ? openaiError.message : String(openaiError),
+        error_type: openaiError instanceof Error ? openaiError.constructor.name : "UnknownError",
+      };
+
+      // Check if it's an OpenAI API error with status
+      if (
+        openaiError &&
+        typeof openaiError === "object" &&
+        "status" in openaiError &&
+        typeof openaiError.status === "number"
+      ) {
+        errorInfo.http_status = openaiError.status;
+        // 429, 500, 502, 503, 504 are typically retryable
+        errorInfo.retryable = [429, 500, 502, 503, 504].includes(openaiError.status);
+      }
+
+      logger.error(
+        {
+          requestId,
+          event: "openai.request.error",
+          model: requestOptions.model,
+          duration_ms: durationMs,
+          request_start_time: requestStartTime,
+          request_end_time: requestEndTime,
+          messages_count: messages.length,
+          prompt_length_chars: promptLength,
+          temperature: "temperature" in requestOptions ? requestOptions.temperature : undefined,
+          max_tokens: "max_tokens" in requestOptions ? requestOptions.max_tokens : undefined,
+          ...errorInfo,
+        },
+        "OpenAI API request failed",
+      );
+
+      // Re-throw the error to preserve existing error behavior
+      throw openaiError;
+    }
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
+      logger.error(
+        {
+          requestId,
+          event: "openai.response.empty",
+          model: requestOptions.model,
+          duration_ms: durationMs,
+        },
+        "Empty response from OpenAI",
+      );
       throw new Error("Empty response from OpenAI");
     }
 
-    logger.debug({ requestId, content }, "Received OpenAI response");
+    // Log response received (without content)
+    logger.debug(
+      {
+        requestId,
+        event: "openai.response.received",
+        model: requestOptions.model,
+        response_length_chars: content.length,
+        duration_ms: durationMs,
+      },
+      "Received OpenAI response",
+    );
 
     let parsed: unknown;
     try {
       parsed = JSON.parse(content);
     } catch (error) {
-      logger.error({ requestId, content, error }, "Failed to parse JSON from OpenAI");
+      logger.error(
+        {
+          requestId,
+          event: "openai.response.parse_error",
+          error_message: error instanceof Error ? error.message : String(error),
+          response_length_chars: content.length,
+        },
+        "Failed to parse JSON from OpenAI",
+      );
       throw new Error("Invalid JSON response from OpenAI");
     }
 
     const validationResult = designSpecSchema.safeParse(parsed);
     if (!validationResult.success) {
       logger.error(
-        { requestId, errors: validationResult.error.errors },
+        {
+          requestId,
+          event: "designspec.validation_error",
+          error_count: validationResult.error.errors.length,
+          errors: validationResult.error.errors,
+        },
         "DesignSpec validation failed",
       );
       throw new Error(`Invalid DesignSpec: ${validationResult.error.message}`);
@@ -440,6 +594,27 @@ export async function generateDesignSpec(
 
     // Apply visual defaults to ensure wireframe-level presentation
     fixedSpec = applyVisualDefaults(fixedSpec, generationContext.targetLayout);
+
+    // Validate visual usage (layout vs surface containers)
+    const visualWarnings = validateVisualUsage(fixedSpec);
+    if (visualWarnings.length > 0) {
+      logger.warn(
+        { requestId, warnings: visualWarnings },
+        "Visual styling detected on layout containers",
+      );
+      // Log individual warnings for better debuggability
+      visualWarnings.forEach((warning) => {
+        logger.debug(
+          {
+            requestId,
+            path: warning.path,
+            properties: warning.properties,
+            reason: warning.reason,
+          },
+          "Visual usage warning",
+        );
+      });
+    }
 
     logger.info({ requestId, spec: fixedSpec }, "DesignSpec generated successfully");
     return fixedSpec;

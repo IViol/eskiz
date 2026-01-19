@@ -77,6 +77,8 @@ export function assembleSystemPrompt(options: PromptAssemblyOptions): string {
   if (options.uxPatterns.formContainer) {
     uxPatternRules.push("- Wrap all form elements in a dedicated form container");
     uxPatternRules.push("- Form containers must have clear padding and spacing");
+    uxPatternRules.push("- Form card container (the main form wrapper) should have visual styling (background, borderRadius)");
+    uxPatternRules.push("- Inner layout containers (field groups, actions containers) should NOT have visual styling");
   }
   if (options.uxPatterns.helperText) {
     uxPatternRules.push("- Include helper or hint text where appropriate");

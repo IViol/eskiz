@@ -7,7 +7,12 @@
     "rules": [
       "Use mobile-first layout (width ~375–400px, height 800px)",
       "Prioritize vertical hierarchy with clear spacing",
-      "Use larger spacing between elements (16–24px)"
+      "Use larger spacing between elements (16–24px)",
+      "Mobile layout guidelines:",
+      "  * Input fields MUST span the full width of their form container (width = 100% of form container)",
+      "  * Primary buttons MUST be full width (width = 100% of form container or available space)",
+      "  * Avoid content-sized controls on mobile - use full-width inputs and buttons for better touch targets",
+      "  * Form containers should constrain width (360–420px), but inputs and buttons inside should fill that width"
     ]
   },
   "tablet": {
