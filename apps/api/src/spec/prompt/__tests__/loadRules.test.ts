@@ -61,12 +61,12 @@ describe("loadRules", () => {
       },
     };
 
-    // getSpecRulesDir() calls readFileSync to find base.json, then loadRuleFile calls it for each file
+    // When SPEC_RULES_DIR is set, getSpecRulesDir() doesn't call readFileSync for directory search
+    // loadRuleFile calls readFileSync for each file: base.json, layout.json, devices.json
     vi.mocked(readFileSync)
-      .mockReturnValueOnce(JSON.stringify(mockBase)) // First call: finding spec-rules dir (base.json check)
-      .mockReturnValueOnce(JSON.stringify(mockBase)) // Second call: loading base.json
-      .mockReturnValueOnce(JSON.stringify(mockLayout)) // Third call: loading layout.json
-      .mockReturnValueOnce(JSON.stringify(mockDevices)); // Fourth call: loading devices.json
+      .mockReturnValueOnce(JSON.stringify(mockBase)) // Loading base.json
+      .mockReturnValueOnce(JSON.stringify(mockLayout)) // Loading layout.json
+      .mockReturnValueOnce(JSON.stringify(mockDevices)); // Loading devices.json
 
     const result = loadRules({
       userPrompt: "Create a form",
@@ -99,7 +99,6 @@ describe("loadRules", () => {
     };
 
     vi.mocked(readFileSync)
-      .mockReturnValueOnce(JSON.stringify(mockBase)) // Finding spec-rules dir
       .mockReturnValueOnce(JSON.stringify(mockBase)) // Loading base.json
       .mockReturnValueOnce(JSON.stringify(mockLayout)) // Loading layout.json
       .mockReturnValueOnce(JSON.stringify(mockDevices)) // Loading devices.json
@@ -133,7 +132,6 @@ describe("loadRules", () => {
     };
 
     vi.mocked(readFileSync)
-      .mockReturnValueOnce(JSON.stringify(mockBase)) // Finding spec-rules dir
       .mockReturnValueOnce(JSON.stringify(mockBase)) // Loading base.json
       .mockReturnValueOnce(JSON.stringify(mockLayout)) // Loading layout.json
       .mockReturnValueOnce(JSON.stringify(mockDevices)) // Loading devices.json
@@ -162,7 +160,6 @@ describe("loadRules", () => {
     };
 
     vi.mocked(readFileSync)
-      .mockReturnValueOnce(JSON.stringify(mockBase)) // Finding spec-rules dir
       .mockReturnValueOnce(JSON.stringify(mockBase)) // Loading base.json
       .mockReturnValueOnce(JSON.stringify(mockLayout)) // Loading layout.json
       .mockReturnValueOnce(JSON.stringify(mockDevices)); // Loading devices.json
@@ -190,7 +187,6 @@ describe("loadRules", () => {
     };
 
     vi.mocked(readFileSync)
-      .mockReturnValueOnce(JSON.stringify(mockBase)) // Finding spec-rules dir
       .mockReturnValueOnce(JSON.stringify(mockBase)) // Loading base.json
       .mockReturnValueOnce(JSON.stringify(mockLayout)) // Loading layout.json
       .mockReturnValueOnce(JSON.stringify(mockDevices)) // Loading devices.json
@@ -221,7 +217,6 @@ describe("loadRules", () => {
     };
 
     vi.mocked(readFileSync)
-      .mockReturnValueOnce(JSON.stringify(mockBase)) // Finding spec-rules dir
       .mockReturnValueOnce(JSON.stringify(mockBase)) // Loading base.json
       .mockReturnValueOnce(JSON.stringify(mockLayout)) // Loading layout.json
       .mockReturnValueOnce(JSON.stringify(mockDevices)); // Loading devices.json
