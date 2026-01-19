@@ -53,9 +53,8 @@ vi.mock("../../logger.js", () => ({
 }));
 
 vi.mock("../../utils/logger.js", async () => {
-  const actual = await vi.importActual<typeof import("../../utils/logger.js")>(
-    "../../utils/logger.js",
-  );
+  const actual =
+    await vi.importActual<typeof import("../../utils/logger.js")>("../../utils/logger.js");
   return {
     ...actual,
   };

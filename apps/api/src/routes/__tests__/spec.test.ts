@@ -49,9 +49,6 @@ vi.mock("../../context/tracing.js", async () => {
 });
 
 vi.mock("../../middleware/tracing.js", async () => {
-  const actual = await vi.importActual<typeof import("../../middleware/tracing.js")>(
-    "../../middleware/tracing.js",
-  );
   const tracing = await import("../../context/tracing.js");
   return {
     tracingMiddleware: (_req: unknown, _res: unknown, next: () => void) => {
