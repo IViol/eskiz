@@ -131,7 +131,10 @@ function applyVisualDefaults(
   targetLayout: GenerationContext["targetLayout"],
 ): DesignSpec {
   // Default dimensions based on target layout
-  const defaultDimensions: Record<GenerationContext["targetLayout"], { width: number; height: number }> = {
+  const defaultDimensions: Record<
+    GenerationContext["targetLayout"],
+    { width: number; height: number }
+  > = {
     mobile: { width: 400, height: 800 },
     tablet: { width: 768, height: 900 },
     desktop: { width: 1200, height: 900 },
