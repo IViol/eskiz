@@ -28,7 +28,7 @@ function isInputLikeContainer(node: ContainerNode): boolean {
   }
   // Check if container has placeholder-like text children
   const hasPlaceholderText = node.children.some(
-    (child) =>
+    (child: Node) =>
       child.type === "text" &&
       (child.content.toLowerCase().includes("enter") ||
         child.content.toLowerCase().includes("placeholder") ||
@@ -140,13 +140,13 @@ export function validateVisualUsage(spec: DesignSpec): VisualUsageWarning[] {
     }
 
     // Continue traversing children
-    container.children.forEach((child, index) => {
+    container.children.forEach((child: Node, index: number) => {
       traverseNode(child, [...pathSegments, "children", index]);
     });
   }
 
   // Traverse all nodes
-  spec.nodes.forEach((node, index) => {
+  spec.nodes.forEach((node: Node, index: number) => {
     traverseNode(node, ["nodes", index]);
   });
 

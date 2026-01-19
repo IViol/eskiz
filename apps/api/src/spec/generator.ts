@@ -61,7 +61,7 @@ function isInputContainer(node: DesignSpec["nodes"][number]): boolean {
   if (node.border) return true;
   // Check if container has placeholder-like text children
   const hasPlaceholderText = node.children.some(
-    (child) =>
+    (child: DesignSpec["nodes"][number]) =>
       child.type === "text" &&
       (child.content.toLowerCase().includes("enter") ||
         child.content.toLowerCase().includes("placeholder")),
@@ -131,7 +131,7 @@ function applyVisualDefaults(
   targetLayout: GenerationContext["targetLayout"],
 ): DesignSpec {
   // Default dimensions based on target layout
-  const defaultDimensions = {
+  const defaultDimensions: Record<GenerationContext["targetLayout"], { width: number; height: number }> = {
     mobile: { width: 400, height: 800 },
     tablet: { width: 768, height: 900 },
     desktop: { width: 1200, height: 900 },
