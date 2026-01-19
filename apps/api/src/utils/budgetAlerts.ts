@@ -2,8 +2,6 @@ import { getEnv } from "../config/env.js";
 import { getTracingContext } from "../context/tracing.js";
 import { logger } from "../logger.js";
 
-const env = getEnv();
-
 export interface BudgetMetrics {
   total_tokens: number;
   prompt_tokens: number;
@@ -23,6 +21,7 @@ export function checkBudgetAlerts(metrics: BudgetMetrics): void {
     return; // No context, skip alerts
   }
 
+  const env = getEnv();
   const { traceId, spanId, projectId, userId } = context;
 
   // Check token budget

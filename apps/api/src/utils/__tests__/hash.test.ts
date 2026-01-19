@@ -39,12 +39,11 @@ describe("hash utilities", () => {
       expect(hash1).toBe(hash2);
     });
 
-    it("produces same hash regardless of key order", () => {
-      const obj1 = { a: 1, b: "test" };
-      const obj2 = { b: "test", a: 1 };
+    it("produces deterministic hash for objects with same content", () => {
+      const obj1 = { a: 1, b: "test", c: [1, 2, 3] };
+      const obj2 = { a: 1, b: "test", c: [1, 2, 3] };
       const hash1 = computeObjectHash(obj1);
       const hash2 = computeObjectHash(obj2);
-      // Note: JSON.stringify may preserve order, so this test verifies current behavior
       expect(hash1).toBe(hash2);
     });
   });

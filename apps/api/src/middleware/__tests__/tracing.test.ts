@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getTracingContext } from "../../context/tracing.js";
-import { extractUserContext } from "../../context/user.js";
+import * as userModule from "../../context/user.js";
 import { tracingMiddleware } from "../tracing.js";
 
 vi.mock("../../context/user.js", () => ({
