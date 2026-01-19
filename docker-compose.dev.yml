@@ -20,6 +20,7 @@ services:
     volumes:
       - ./packages/spec:/app/packages/spec
       - ./apps/api:/app/apps/api
+      - ./spec-rules:/app/spec-rules
       - ./tsconfig.base.json:/app/tsconfig.base.json
       - /app/node_modules
       - /app/packages/spec/node_modules

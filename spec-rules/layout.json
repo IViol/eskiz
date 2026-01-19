@@ -1,0 +1,20 @@
+{
+  "name": "layout",
+  "description": "Layout intent rules (e.g. form rhythm, centering)",
+  "rules": [
+    "Maintain clear visual hierarchy",
+    "Use logical grouping (e.g. form fields together)",
+    "Group related elements in containers",
+    "Organize form elements logically"
+  ],
+  "strictRules": [
+    "Use explicit containers for all grouped elements",
+    "Maintain clear visual hierarchy",
+    "Do not add extra decorative or supporting text unless explicitly requested"
+  ],
+  "balancedRules": [
+    "Use containers for grouping",
+    "Allow headers or supporting text if relevant to the prompt",
+    "Balance structure with content needs"
+  ]
+}

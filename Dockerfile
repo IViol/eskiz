@@ -16,6 +16,7 @@ RUN npm ci
 # Copy source files
 COPY packages/spec ./packages/spec
 COPY apps/api ./apps/api
+COPY spec-rules ./spec-rules
 COPY tsconfig.base.json ./
 
 # Build packages and apps
@@ -40,6 +41,7 @@ RUN npm ci --omit=dev
 # Copy built artifacts
 COPY --from=builder /app/packages/spec/dist ./packages/spec/dist
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY --from=builder /app/spec-rules ./spec-rules
 COPY --from=builder /app/tsconfig.base.json ./
 
 WORKDIR /app/apps/api

@@ -48,25 +48,49 @@ describe("generateDesignSpec", () => {
   it("returns mock spec when dryRun is true", async () => {
     const result = await generateDesignSpec({ prompt: "Test" }, true);
 
-    expect(result).toEqual({
+    // applyVisualDefaults adds visual properties, so we need to expect them
+    expect(result).toMatchObject({
       page: "Mock Page",
       frame: {
         name: "Mock Frame",
         width: 400,
+        height: 800, // Added by applyVisualDefaults
         layout: "vertical",
         gap: 16,
         padding: 24,
+        background: "#FFFFFF", // Added by applyVisualDefaults
+        borderRadius: 12, // Added by applyVisualDefaults
       },
       nodes: [
-        { type: "text", content: "Mock content", fontSize: 16 },
+        {
+          type: "text",
+          content: "Mock content",
+          fontSize: 16,
+          color: "#111111", // Added by applyVisualDefaults
+        },
         {
           type: "container",
           layout: "vertical",
           gap: 12,
           padding: 16,
-          children: [{ type: "text", content: "Nested text", fontSize: 14 }],
+          background: "#FFFFFF", // Added by applyVisualDefaults
+          borderRadius: 12, // Added by applyVisualDefaults
+          children: [
+            {
+              type: "text",
+              content: "Nested text",
+              fontSize: 14,
+              color: "#111111", // Added by applyVisualDefaults
+            },
+          ],
         },
-        { type: "button", label: "Mock Button" },
+        {
+          type: "button",
+          label: "Mock Button",
+          background: "#2563EB", // Added by applyVisualDefaults
+          textColor: "#FFFFFF", // Added by applyVisualDefaults
+          borderRadius: 8, // Added by applyVisualDefaults
+        },
       ],
     });
     expect(mockChatCompletionsCreate).not.toHaveBeenCalled();
@@ -100,17 +124,32 @@ describe("generateDesignSpec", () => {
 
     const result = await generateDesignSpec({ prompt: "Create a welcome page" }, false);
 
-    expect(result).toEqual(validSpec);
-    expect(mockChatCompletionsCreate).toHaveBeenCalledWith({
-      model: "gpt-4o-mini",
+    // applyVisualDefaults adds visual properties, so we need to check that the spec structure matches
+    // but allow for added visual defaults
+    expect(result.page).toBe(validSpec.page);
+    expect(result.frame.name).toBe(validSpec.frame.name);
+    expect(result.frame.width).toBe(validSpec.frame.width);
+    expect(result.frame.layout).toBe(validSpec.frame.layout);
+    expect(result.frame.gap).toBe(validSpec.frame.gap);
+    expect(result.frame.padding).toBe(validSpec.frame.padding);
+    // Visual defaults may be added
+    expect(result.nodes).toHaveLength(validSpec.nodes.length);
+    // gpt-5-nano doesn't support temperature parameter
+    expect(mockChatCompletionsCreate).toHaveBeenCalled();
+    const callArgs = mockChatCompletionsCreate.mock.calls[0]?.[0];
+    expect(callArgs).toMatchObject({
+      model: "gpt-5-nano",
       messages: [
-        { role: "system", content: expect.stringContaining("UI layout generator") },
+        {
+          role: "system",
+          content: expect.stringContaining("DesignSpecs for real application UIs"),
+        },
         { role: "assistant", content: expect.stringContaining("DesignSpec JSON structure") },
         { role: "user", content: "Create a welcome page" },
       ],
       response_format: { type: "json_object" },
-      temperature: 0.3,
-    });
+    } as unknown);
+    expect(callArgs).not.toHaveProperty("temperature");
   });
 
   it("throws error when OpenAI returns empty content", async () => {

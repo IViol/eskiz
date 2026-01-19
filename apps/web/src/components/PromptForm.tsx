@@ -16,6 +16,8 @@ const DEFAULT_GENERATION_CONTEXT: GenerationContext = {
     formContainer: true,
     helperText: false,
   },
+  visualBaseline: true,
+  strictLayout: false,
 };
 
 export function PromptForm({ onSubmit, loading }: PromptFormProps) {
@@ -161,6 +163,42 @@ export function PromptForm({ onSubmit, loading }: PromptFormProps) {
                   Add helper / hint text
                 </label>
               </div>
+            </div>
+
+            <div className="advanced-field">
+              <label className="advanced-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={generationContext.visualBaseline ?? true}
+                  onChange={(e) =>
+                    setGenerationContext({
+                      ...generationContext,
+                      visualBaseline: e.target.checked,
+                    })
+                  }
+                  disabled={loading}
+                  className="advanced-checkbox"
+                />
+                Apply visual baseline defaults
+              </label>
+            </div>
+
+            <div className="advanced-field">
+              <label className="advanced-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={generationContext.strictLayout ?? false}
+                  onChange={(e) =>
+                    setGenerationContext({
+                      ...generationContext,
+                      strictLayout: e.target.checked,
+                    })
+                  }
+                  disabled={loading}
+                  className="advanced-checkbox"
+                />
+                Strict layout mode
+              </label>
             </div>
           </div>
         )}

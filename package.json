@@ -16,7 +16,7 @@
     "dev:docker:down": "docker-compose -f docker-compose.dev.yml down",
     "dev:docker:build": "docker-compose -f docker-compose.dev.yml build",
     "dev:docker:rebuild": "docker-compose -f docker-compose.dev.yml build --no-cache",
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build --workspace=packages/spec && npm run build --workspace=apps/api && npm run build --workspace=apps/web && npm run build --workspace=apps/figma-plugin",
     "test": "npm run test --workspaces --if-present",
     "test:e2e": "playwright test --config=e2e/playwright.config.ts",
     "lint": "biome check .",

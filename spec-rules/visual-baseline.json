@@ -1,0 +1,22 @@
+{
+  "name": "visual-baseline",
+  "description": "Default visual rules used when user does not specify styles",
+  "rules": [
+    "Visual defaults (wireframe-level presentation):",
+    "CRITICAL: Visual styling (background, borderRadius, border) applies ONLY to specific container types:",
+    "  * Card-like containers (form cards, content cards): background \"#FFFFFF\", borderRadius 12",
+    "  * Input-like containers: background \"#FFFFFF\", border { color: \"#D1D5DB\", width: 1 }",
+    "  * Buttons: background \"#2563EB\", textColor \"#FFFFFF\", borderRadius 8",
+    "DO NOT apply visual styling to layout/grouping containers:",
+    "  * Containers used only for layout (centering, spacing, grouping) MUST NOT have background, borderRadius, or border",
+    "  * Field group containers, actions containers, wrapper containers are layout-only and should be visually neutral",
+    "  * Only apply visual properties to containers that represent actual UI elements (cards, inputs, buttons)",
+    "Text styling:",
+    "  * Primary text: color \"#111111\"",
+    "  * Placeholder/helper text: color \"#6B7280\"",
+    "ALWAYS include these visual properties explicitly in the DesignSpec JSON",
+    "Do NOT rely on the Figma plugin to infer styles",
+    "Apply defaults unless user explicitly specifies different styles",
+    "Rule of thumb: If a container exists only to organize or position other elements, it should have NO visual styling"
+  ]
+}
