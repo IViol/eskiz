@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadRules, resetSpecRulesDirCache } from "../loadRules.js";
 
 vi.mock("node:fs", () => ({
@@ -24,7 +24,7 @@ describe("loadRules", () => {
   });
 
   afterEach(() => {
-    delete process.env.SPEC_RULES_DIR;
+    process.env.SPEC_RULES_DIR = undefined;
     resetSpecRulesDirCache();
   });
 

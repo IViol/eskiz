@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import type { DesignSpec } from "@eskiz/spec";
+import { describe, expect, it } from "vitest";
 import { validateVisualUsage } from "../validateVisualUsage.js";
 
 describe("validateVisualUsage", () => {
@@ -111,9 +111,7 @@ describe("validateVisualUsage", () => {
           padding: 12,
           background: "#FFFFFF",
           border: { color: "#D1D5DB", width: 1 },
-          children: [
-            { type: "text", content: "Enter your email" },
-          ],
+          children: [{ type: "text", content: "Enter your email" }],
         },
       ],
     };
@@ -148,9 +146,7 @@ describe("validateVisualUsage", () => {
               layout: "vertical",
               gap: 16,
               padding: 0,
-              children: [
-                { type: "text", content: "Field 1" },
-              ],
+              children: [{ type: "text", content: "Field 1" }],
             },
           ],
         },
@@ -227,9 +223,7 @@ describe("validateVisualUsage", () => {
               gap: 8,
               padding: 0,
               borderRadius: 4,
-              children: [
-                { type: "text", content: "Nested" },
-              ],
+              children: [{ type: "text", content: "Nested" }],
             },
           ],
         },
@@ -264,9 +258,7 @@ describe("validateVisualUsage", () => {
           background: "#FFFFFF",
           borderRadius: 12,
           border: { color: "#D1D5DB", width: 1 },
-          children: [
-            { type: "text", content: "Content" },
-          ],
+          children: [{ type: "text", content: "Content" }],
         },
       ],
     };

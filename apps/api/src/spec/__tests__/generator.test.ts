@@ -107,12 +107,15 @@ describe("generateDesignSpec", () => {
     expect(callArgs).toMatchObject({
       model: "gpt-5-nano",
       messages: [
-        { role: "system", content: expect.stringContaining("DesignSpecs for real application UIs") },
+        {
+          role: "system",
+          content: expect.stringContaining("DesignSpecs for real application UIs"),
+        },
         { role: "assistant", content: expect.stringContaining("DesignSpec JSON structure") },
         { role: "user", content: "Create a welcome page" },
-      },
+      ],
       response_format: { type: "json_object" },
-    });
+    } as unknown);
     expect(callArgs).not.toHaveProperty("temperature");
   });
 

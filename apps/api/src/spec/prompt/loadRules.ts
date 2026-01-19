@@ -14,14 +14,14 @@ const __dirname = fileURLToPath(new URL(".", import.meta.url));
 
 /**
  * Determines the path to the spec-rules directory.
- * 
+ *
  * Strategy:
  * 1. Try to find spec-rules by going up from current location
  * 2. In Docker: /app/apps/api/dist/spec/prompt/ -> /app/spec-rules
  * 3. In dev: apps/api/src/spec/prompt/ -> spec-rules/
- * 
+ *
  * We search upward until we find a directory containing spec-rules/base.json
- * 
+ *
  * This is computed lazily to work with test mocks.
  */
 let cachedSpecRulesDir: string | null = null;
@@ -37,20 +37,20 @@ function getSpecRulesDir(): string {
   if (cachedSpecRulesDir !== null) {
     return cachedSpecRulesDir;
   }
-  
+
   // Allow override via environment variable (useful for testing)
   if (process.env.SPEC_RULES_DIR) {
     cachedSpecRulesDir = process.env.SPEC_RULES_DIR;
     return cachedSpecRulesDir;
   }
-  
+
   let currentDir = __dirname;
   const maxDepth = 10;
-  
+
   for (let depth = 0; depth < maxDepth; depth++) {
     const specRulesPath = join(currentDir, "spec-rules");
     const baseJsonPath = join(specRulesPath, "base.json");
-    
+
     try {
       // Check if spec-rules/base.json exists
       readFileSync(baseJsonPath, "utf-8");
@@ -66,7 +66,7 @@ function getSpecRulesDir(): string {
       currentDir = parentDir;
     }
   }
-  
+
   // Fallback: use relative path from compiled location
   // This should work if spec-rules is copied to the right place
   cachedSpecRulesDir = resolve(__dirname, "../../../../spec-rules");
@@ -126,7 +126,7 @@ export function loadRules(options: {
     if (matchesPattern(options.userPrompt, authFormPattern)) {
       patterns.push(authFormPattern);
     }
-  } catch (error) {
+  } catch (_error) {
     // Pattern file doesn't exist or can't be loaded - continue without it
     // This allows the system to work even if patterns are missing
   }

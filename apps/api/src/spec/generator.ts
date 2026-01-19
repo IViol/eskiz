@@ -174,8 +174,7 @@ function applyVisualDefaults(
         ...node,
         background: node.background ?? VISUAL_DEFAULTS.containerBackground,
         borderRadius:
-          node.borderRadius ??
-          (isInput ? undefined : VISUAL_DEFAULTS.containerBorderRadius),
+          node.borderRadius ?? (isInput ? undefined : VISUAL_DEFAULTS.containerBorderRadius),
         border: node.border ?? (isInput ? VISUAL_DEFAULTS.inputBorder : undefined),
         children: node.children.map(applyNodeDefaults),
       };
@@ -438,7 +437,7 @@ export async function generateDesignSpec(
       "Starting OpenAI API request",
     );
 
-    let completion;
+    let completion: Awaited<ReturnType<typeof openai.chat.completions.create>>;
     let requestEndTime: number;
     let durationMs: number;
 
@@ -603,7 +602,7 @@ export async function generateDesignSpec(
         "Visual styling detected on layout containers",
       );
       // Log individual warnings for better debuggability
-      visualWarnings.forEach((warning) => {
+      for (const warning of visualWarnings) {
         logger.debug(
           {
             requestId,
@@ -613,7 +612,7 @@ export async function generateDesignSpec(
           },
           "Visual usage warning",
         );
-      });
+      }
     }
 
     logger.info({ requestId, spec: fixedSpec }, "DesignSpec generated successfully");

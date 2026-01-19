@@ -54,7 +54,7 @@
     "Layout containers (field groups, actions containers, wrapper containers):",
     "  * MUST NOT have background, borderRadius, or border properties",
     "  * These containers exist only for organization and spacing",
-    "  * Only the form card container itself should have visual styling (background, borderRadius)"
+    "  * Only the form card container itself should have visual styling (background, borderRadius)",
     "Titles/Headings:",
     "  * Use larger fontSize (20–24px for main title, 16–18px for section titles)",
     "  * Have larger margin-bottom (24–32px)",

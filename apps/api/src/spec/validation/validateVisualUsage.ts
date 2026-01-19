@@ -93,10 +93,7 @@ function buildPath(segments: (string | number)[]): string {
 export function validateVisualUsage(spec: DesignSpec): VisualUsageWarning[] {
   const warnings: VisualUsageWarning[] = [];
 
-  function traverseNode(
-    node: Node,
-    pathSegments: (string | number)[],
-  ): void {
+  function traverseNode(node: Node, pathSegments: (string | number)[]): void {
     if (node.type !== "container") {
       return;
     }
@@ -126,7 +123,7 @@ export function validateVisualUsage(spec: DesignSpec): VisualUsageWarning[] {
         properties.push(`borderRadius=${container.borderRadius}`);
       }
       if (container.border) {
-        properties.push(`border`);
+        properties.push("border");
       }
 
       const path = buildPath(pathSegments);

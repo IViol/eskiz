@@ -345,7 +345,7 @@ async function executeSpec(spec: DesignSpec): Promise<void> {
     const frame = figma.createFrame();
     frame.name = spec.frame.name;
     frame.layoutMode = spec.frame.layout === "vertical" ? "VERTICAL" : "HORIZONTAL";
-    
+
     // Set sizing modes based on whether height is specified
     const hasFixedHeight = spec.frame.height !== undefined;
     if (spec.frame.layout === "vertical") {
@@ -357,18 +357,18 @@ async function executeSpec(spec: DesignSpec): Promise<void> {
       frame.primaryAxisSizingMode = "FIXED"; // Width is always fixed
       frame.counterAxisSizingMode = hasFixedHeight ? "FIXED" : "AUTO";
     }
-    
+
     // Set dimensions using resize() - required when using FIXED sizing modes
     const frameHeight = spec.frame.height ?? 0; // 0 means auto-calculate
     frame.resize(spec.frame.width, frameHeight);
-    
+
     frame.itemSpacing = spec.frame.gap;
     frame.paddingLeft = spec.frame.padding;
     frame.paddingRight = spec.frame.padding;
     frame.paddingTop = spec.frame.padding;
     frame.paddingBottom = spec.frame.padding;
     frame.cornerRadius = spec.frame.borderRadius ?? CONTAINER_CORNER_RADIUS;
-    
+
     // Apply background fill from spec or default - MUST use fills property
     const bgColor = spec.frame.background ? hexToRgb(spec.frame.background) : CONTAINER_BACKGROUND;
     frame.fills = [{ type: "SOLID", color: bgColor }];
