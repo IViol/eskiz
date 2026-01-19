@@ -1,16 +1,22 @@
 import { promptRequestSchema } from "@eskiz/spec";
 import type { Request, Response } from "express";
-import { logger } from "../logger.js";
+import { getContextLogger } from "../utils/logger.js";
 import { generateDesignSpec } from "../spec/generator.js";
 
 export async function handleSpecRequest(req: Request, res: Response): Promise<void> {
-  const requestId = crypto.randomUUID();
+  const log = getContextLogger();
   const dryRun = req.query.dryRun === "true";
 
   try {
     const validationResult = promptRequestSchema.safeParse(req.body);
     if (!validationResult.success) {
-      logger.warn({ requestId, errors: validationResult.error.errors }, "Invalid request body");
+      log.warn(
+        {
+          event: "request.validation.fail",
+          errors: validationResult.error.errors,
+        },
+        "Invalid request body",
+      );
       res.status(400).json({
         error: "Invalid request",
         details: validationResult.error.errors,
@@ -22,7 +28,14 @@ export async function handleSpecRequest(req: Request, res: Response): Promise<vo
 
     res.json(spec);
   } catch (error) {
-    logger.error({ requestId, error }, "Error handling spec request");
+    log.error(
+      {
+        event: "request.error",
+        error_message: error instanceof Error ? error.message : String(error),
+        error_type: error instanceof Error ? error.constructor.name : "UnknownError",
+      },
+      "Error handling spec request",
+    );
     res.status(500).json({
       error: "Internal server error",
       message: error instanceof Error ? error.message : "Unknown error",

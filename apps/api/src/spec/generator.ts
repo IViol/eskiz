@@ -2,7 +2,13 @@ import { designSpecSchema } from "@eskiz/spec";
 import type { DesignSpec, GenerationContext, PromptRequest } from "@eskiz/spec";
 import OpenAI from "openai";
 import { getEnv } from "../config/env.js";
-import { logger } from "../logger.js";
+import { createChildSpan, getTracingContext } from "../context/tracing.js";
+import { getContextLogger } from "../utils/logger.js";
+import { computeHash, computeObjectHash } from "../utils/hash.js";
+import { analyzeSpec } from "../utils/specAnalysis.js";
+import { aggregateWarnings } from "../utils/warningsAggregation.js";
+import { makeOpenAIRequestWithRetry } from "../utils/openaiRetry.js";
+import { checkBudgetAlerts } from "../utils/budgetAlerts.js";
 import { assembleSystemPrompt } from "./prompt/assembleSystemPrompt.js";
 import { validateVisualUsage } from "./validation/validateVisualUsage.js";
 
@@ -344,13 +350,25 @@ export async function generateDesignSpec(
   request: PromptRequest,
   dryRun: boolean,
 ): Promise<DesignSpec> {
-  const requestId = crypto.randomUUID();
+  const context = getTracingContext();
+  if (!context) {
+    throw new Error("Tracing context not found");
+  }
+
+  // Create span for generation
+  const generationSpan = createChildSpan(context);
+  const log = getContextLogger().child({ spanId: generationSpan.spanId });
+
   const generationContext = request.generationContext ?? DEFAULT_GENERATION_CONTEXT;
-  logger.info(
+  const promptLength = request.prompt.length;
+  const promptHash = computeHash(request.prompt);
+
+  log.info(
     {
-      requestId,
       event: "designspec.generation.start",
-      prompt_length_chars: request.prompt.length,
+      spanId: generationSpan.spanId,
+      prompt_length_chars: promptLength,
+      prompt_hash: promptHash,
       generationContext,
       dryRun,
     },
@@ -358,7 +376,7 @@ export async function generateDesignSpec(
   );
 
   if (dryRun) {
-    logger.info({ requestId }, "Dry run mode - returning mock spec");
+    log.info({ spanId: generationSpan.spanId }, "Dry run mode - returning mock spec");
     const mockSpec: DesignSpec = {
       page: "Mock Page",
       frame: {
@@ -391,12 +409,36 @@ export async function generateDesignSpec(
         },
       ],
     };
-    return applyVisualDefaults(mockSpec, generationContext.targetLayout);
+    const finalMockSpec = applyVisualDefaults(mockSpec, generationContext.targetLayout);
+    const specHash = computeObjectHash(finalMockSpec);
+    const analysis = analyzeSpec(finalMockSpec);
+
+    log.info(
+      {
+        event: "designspec.generation.success",
+        spanId: generationSpan.spanId,
+        spec_hash: specHash,
+        spec_length_chars: JSON.stringify(finalMockSpec).length,
+        ...analysis,
+        dryRun: true,
+      },
+      "DesignSpec generated successfully (dry run)",
+    );
+
+    return finalMockSpec;
   }
 
   try {
     const systemPrompt = buildSystemPrompt(generationContext, request.prompt);
     const model = "gpt-5-nano";
+
+    // Compute final prompt hash (system + assistant + user)
+    const finalPrompt = [
+      systemPrompt,
+      ASSISTANT_PROMPT,
+      request.prompt,
+    ].join("\n");
+    const finalPromptHash = computeHash(finalPrompt);
 
     // Some models (like gpt-5-nano) don't support custom temperature values
     // Only include temperature if the model supports it
@@ -420,127 +462,72 @@ export async function generateDesignSpec(
 
     // Calculate request characteristics for logging
     const messages = requestOptions.messages;
-    const promptLength = messages.reduce(
+    const totalPromptLength = messages.reduce(
       (sum, msg) => sum + (typeof msg.content === "string" ? msg.content.length : 0),
       0,
     );
     const requestStartTime = Date.now();
 
-    // Log request start
-    logger.debug(
-      {
-        requestId,
-        event: "openai.request.start",
-        model: requestOptions.model,
-        messages_count: messages.length,
-        prompt_length_chars: promptLength,
-        temperature: "temperature" in requestOptions ? requestOptions.temperature : undefined,
-        max_tokens: "max_tokens" in requestOptions ? requestOptions.max_tokens : undefined,
-      },
-      "Starting OpenAI API request",
-    );
+    // Create span for OpenAI request
+    const openaiSpan = createChildSpan(generationSpan);
+    const openaiLog = log.child({ spanId: openaiSpan.spanId });
 
-    let completion: Awaited<ReturnType<typeof openai.chat.completions.create>>;
-    let requestEndTime: number;
-    let durationMs: number;
+    // Make request with retry logic
+    const retryResult = await makeOpenAIRequestWithRetry(openai, requestOptions);
+    const requestEndTime = Date.now();
+    const durationMs = requestEndTime - requestStartTime;
 
-    try {
-      completion = await openai.chat.completions.create(requestOptions);
-      requestEndTime = Date.now();
-      durationMs = requestEndTime - requestStartTime;
-
-      // Extract token usage from response
-      const usage = completion.usage;
-      const tokenInfo = usage
-        ? {
-            prompt_tokens: usage.prompt_tokens,
-            completion_tokens: usage.completion_tokens,
-            total_tokens: usage.total_tokens,
-          }
-        : {};
-
-      // Log successful request
-      const logData = {
-        requestId,
-        event: "openai.request",
-        model: requestOptions.model,
-        duration_ms: durationMs,
-        request_start_time: requestStartTime,
-        request_end_time: requestEndTime,
-        messages_count: messages.length,
-        prompt_length_chars: promptLength,
-        temperature: "temperature" in requestOptions ? requestOptions.temperature : undefined,
-        max_tokens: "max_tokens" in requestOptions ? requestOptions.max_tokens : undefined,
-        ...tokenInfo,
-      };
-
-      // Log as warning if slow, otherwise info
-      if (durationMs > 3000) {
-        logger.warn(
-          {
-            ...logData,
-            slow_request: true,
-            threshold_ms: 3000,
-          },
-          "Slow OpenAI request detected",
-        );
-      } else {
-        logger.info(logData, "OpenAI request completed");
-      }
-    } catch (openaiError: unknown) {
-      requestEndTime = Date.now();
-      durationMs = requestEndTime - requestStartTime;
-
-      // Extract error information
-      const errorInfo: {
-        error_message: string;
-        error_type: string;
-        http_status?: number;
-        retryable?: boolean;
-      } = {
-        error_message: openaiError instanceof Error ? openaiError.message : String(openaiError),
-        error_type: openaiError instanceof Error ? openaiError.constructor.name : "UnknownError",
-      };
-
-      // Check if it's an OpenAI API error with status
-      if (
-        openaiError &&
-        typeof openaiError === "object" &&
-        "status" in openaiError &&
-        typeof openaiError.status === "number"
-      ) {
-        errorInfo.http_status = openaiError.status;
-        // 429, 500, 502, 503, 504 are typically retryable
-        errorInfo.retryable = [429, 500, 502, 503, 504].includes(openaiError.status);
-      }
-
-      logger.error(
+    if (retryResult.outcome !== "success" || !retryResult.completion) {
+      openaiLog.error(
         {
-          requestId,
-          event: "openai.request.error",
+          event: "openai.request",
+          spanId: openaiSpan.spanId,
           model: requestOptions.model,
           duration_ms: durationMs,
-          request_start_time: requestStartTime,
-          request_end_time: requestEndTime,
-          messages_count: messages.length,
-          prompt_length_chars: promptLength,
-          temperature: "temperature" in requestOptions ? requestOptions.temperature : undefined,
-          max_tokens: "max_tokens" in requestOptions ? requestOptions.max_tokens : undefined,
-          ...errorInfo,
+          retry_count: retryResult.retryCount,
+          outcome: retryResult.outcome,
+          openai_request_id: retryResult.openaiRequestId,
+          prompt_hash: finalPromptHash,
+          prompt_length_chars: totalPromptLength,
         },
-        "OpenAI API request failed",
+        "OpenAI request failed",
       );
-
-      // Re-throw the error to preserve existing error behavior
-      throw openaiError;
+      throw new Error(`OpenAI request failed: ${retryResult.outcome}`);
     }
+
+    const completion = retryResult.completion;
+
+    // Extract token usage from response
+    const usage = completion.usage;
+    const promptTokens = usage?.prompt_tokens ?? 0;
+    const completionTokens = usage?.completion_tokens ?? 0;
+    const totalTokens = usage?.total_tokens ?? 0;
+
+    // Log successful request
+    openaiLog.info(
+      {
+        event: "openai.request",
+        spanId: openaiSpan.spanId,
+        model: requestOptions.model,
+        duration_ms: durationMs,
+        retry_count: retryResult.retryCount,
+        outcome: retryResult.outcome,
+        openai_request_id: retryResult.openaiRequestId,
+        prompt_tokens: promptTokens,
+        completion_tokens: completionTokens,
+        total_tokens: totalTokens,
+        prompt_hash: finalPromptHash,
+        prompt_length_chars: totalPromptLength,
+      },
+      "OpenAI request completed",
+    );
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
-      logger.error(
+      openaiLog.error(
         {
-          requestId,
           event: "openai.response.empty",
+          spanId: openaiSpan.spanId,
           model: requestOptions.model,
           duration_ms: durationMs,
         },
@@ -549,26 +536,14 @@ export async function generateDesignSpec(
       throw new Error("Empty response from OpenAI");
     }
 
-    // Log response received (without content)
-    logger.debug(
-      {
-        requestId,
-        event: "openai.response.received",
-        model: requestOptions.model,
-        response_length_chars: content.length,
-        duration_ms: durationMs,
-      },
-      "Received OpenAI response",
-    );
-
     let parsed: unknown;
     try {
       parsed = JSON.parse(content);
     } catch (error) {
-      logger.error(
+      openaiLog.error(
         {
-          requestId,
           event: "openai.response.parse_error",
+          spanId: openaiSpan.spanId,
           error_message: error instanceof Error ? error.message : String(error),
           response_length_chars: content.length,
         },
@@ -579,10 +554,10 @@ export async function generateDesignSpec(
 
     const validationResult = designSpecSchema.safeParse(parsed);
     if (!validationResult.success) {
-      logger.error(
+      log.error(
         {
-          requestId,
           event: "designspec.validation_error",
+          spanId: generationSpan.spanId,
           error_count: validationResult.error.errors.length,
           errors: validationResult.error.errors,
         },
@@ -597,31 +572,105 @@ export async function generateDesignSpec(
     // Apply visual defaults to ensure wireframe-level presentation
     fixedSpec = applyVisualDefaults(fixedSpec, generationContext.targetLayout);
 
+    // Compute spec hash
+    const specHash = computeObjectHash(fixedSpec);
+    const specLength = JSON.stringify(fixedSpec).length;
+
+    // Analyze spec structure
+    const analysis = analyzeSpec(fixedSpec);
+
     // Validate visual usage (layout vs surface containers)
     const visualWarnings = validateVisualUsage(fixedSpec);
+    const warningsAggregated = aggregateWarnings(visualWarnings);
+
+    // Create validation span
+    const validationSpan = createChildSpan(generationSpan);
+    const validationLog = log.child({ spanId: validationSpan.spanId });
+
     if (visualWarnings.length > 0) {
-      logger.warn(
-        { requestId, warnings: visualWarnings },
-        "Visual styling detected on layout containers",
-      );
-      // Log individual warnings for better debuggability
-      for (const warning of visualWarnings) {
-        logger.debug(
+      const env = getEnv();
+      if (env.LOG_DEBUG_PAYLOADS) {
+        // Log detailed warnings in debug mode
+        validationLog.warn(
           {
-            requestId,
-            path: warning.path,
-            properties: warning.properties,
-            reason: warning.reason,
+            event: "designspec.validation",
+            spanId: validationSpan.spanId,
+            warnings: visualWarnings,
+            ...warningsAggregated,
           },
-          "Visual usage warning",
+          "Visual styling detected on layout containers",
+        );
+      } else {
+        // Log only aggregated warnings in production
+        validationLog.warn(
+          {
+            event: "designspec.validation",
+            spanId: validationSpan.spanId,
+            ...warningsAggregated,
+          },
+          "Visual styling detected on layout containers",
         );
       }
+    } else {
+      validationLog.info(
+        {
+          event: "designspec.validation",
+          spanId: validationSpan.spanId,
+          ...warningsAggregated,
+        },
+        "DesignSpec validation passed",
+      );
     }
 
-    logger.info({ requestId, spec: fixedSpec }, "DesignSpec generated successfully");
+    // Check budget alerts
+    checkBudgetAlerts({
+      total_tokens: totalTokens,
+      prompt_tokens: promptTokens,
+      completion_tokens: completionTokens,
+      duration_ms: durationMs,
+      model: requestOptions.model,
+      prompt_hash: finalPromptHash,
+      spec_hash: specHash,
+    });
+
+    // Log success with all metrics
+    const env = getEnv();
+    const successLogData: Record<string, unknown> = {
+      event: "designspec.generation.success",
+      spanId: generationSpan.spanId,
+      spec_hash: specHash,
+      spec_length_chars: specLength,
+      prompt_hash: finalPromptHash,
+      prompt_length_chars: totalPromptLength,
+      ...analysis,
+      ...warningsAggregated,
+      openai_request_id: retryResult.openaiRequestId,
+      model: requestOptions.model,
+      duration_ms: durationMs,
+      prompt_tokens: promptTokens,
+      completion_tokens: completionTokens,
+      total_tokens: totalTokens,
+      retry_count: retryResult.retryCount,
+    };
+
+    // Include full spec only in debug mode
+    if (env.LOG_DEBUG_PAYLOADS) {
+      successLogData.spec = fixedSpec;
+    }
+
+    log.info(successLogData, "DesignSpec generated successfully");
+
     return fixedSpec;
   } catch (error) {
-    logger.error({ requestId, error }, "Error generating DesignSpec");
+    log.error(
+      {
+        event: "designspec.generation.fail",
+        spanId: generationSpan.spanId,
+        error_message: error instanceof Error ? error.message : String(error),
+        error_type: error instanceof Error ? error.constructor.name : "UnknownError",
+      },
+      "Error generating DesignSpec",
+    );
     throw error;
   }
 }

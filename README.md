@@ -76,7 +76,10 @@ Create a `.env` file in the root (see `.env.example`):
 OPENAI_API_KEY=your_openai_api_key_here
 PORT=3000
 LOG_LEVEL=info
+LOG_HASH_SECRET=change-me-in-production
 ```
+
+See [Observability & Logging](#observability--logging) section for all configuration options.
 
 ### Development
 
@@ -261,6 +264,77 @@ Figma plugin for executing DesignSpecs.
 2. In Figma Desktop:
    - Plugins → Development → Import plugin from manifest
    - Select `apps/figma-plugin/manifest.json`
+
+## Observability & Logging
+
+The API server includes comprehensive observability features for tracing, security, and monitoring.
+
+### Tracing
+
+Every HTTP request is assigned a unique `traceId` that propagates through all operations, including OpenAI API calls and validation steps. Key operations create child `spanId`s for detailed tracing:
+
+- `designspec.generation` - Main generation span
+- `openai.request` - OpenAI API call span
+- `designspec.validation` - Validation span
+
+### User Identification
+
+- **projectId**: Extracted from `x-project-id` header (defaults to "default")
+- **sessionId**: Extracted from `eskiz_sid` cookie or `x-session-id` header (auto-generated if missing)
+- **userId**: Computed as HMAC(sessionId) using `LOG_HASH_SECRET` (never logs raw sessionId)
+
+### Log Events
+
+All logs include `traceId`, `spanId`, `projectId`, and `userId`. Standard events:
+
+- `designspec.generation.start` - Generation started
+- `designspec.generation.success` - Generation completed (includes spec metrics)
+- `designspec.generation.fail` - Generation failed
+- `designspec.validation` - Validation results (aggregated warnings)
+- `openai.request` - OpenAI API call (includes tokens, duration, retry count, request ID)
+- `budget.alert.tokens` - Token budget exceeded
+- `budget.alert.duration` - Duration budget exceeded
+- `budget.alert.ratio` - Completion ratio budget exceeded
+
+### Security & Sanitization
+
+- **Sensitive headers redacted**: `cookie`, `authorization`, `set-cookie`, and any header containing "token" or "secret"
+- **Prompt/Spec hashing**: Full prompts and specs are hashed (SHA-256) for logging; full content only logged when `LOG_DEBUG_PAYLOADS=true`
+- **Warnings aggregation**: Detailed warnings only logged in debug mode; production logs include aggregated counts and types
+
+### Metrics
+
+Each `designspec.generation.success` event includes:
+
+- `nodes_count` - Total nodes in spec
+- `depth` - Maximum tree depth
+- `surface_nodes_count` - Surface nodes (with visual styling)
+- `warnings_count` - Number of validation warnings
+- `warnings_types` - Unique warning types
+- `prompt_hash` / `spec_hash` - SHA-256 hashes
+- `prompt_tokens` / `completion_tokens` / `total_tokens` - Token usage
+- `duration_ms` - Generation duration
+- `openai_request_id` - OpenAI request ID for correlation
+
+### Configuration
+
+See `.env.example` for all observability settings:
+
+- `LOG_HASH_SECRET` - Secret for HMAC user ID computation (required)
+- `LOG_DEBUG_PAYLOADS` - Enable full payload logging (default: false)
+- `OPENAI_TIMEOUT_MS` - OpenAI request timeout (default: 30000)
+- `OPENAI_RETRY_MAX` - Maximum retry attempts (default: 2)
+- `OPENAI_RETRY_BASE_MS` - Base retry delay in ms (default: 1000)
+- `BUDGET_MAX_TOKENS` - Token budget threshold (default: 8000)
+- `BUDGET_MAX_DURATION_MS` - Duration budget threshold (default: 8000)
+- `BUDGET_MAX_COMPLETION_RATIO` - Completion ratio threshold (default: 3.0)
+
+### Debug Mode
+
+Set `LOG_DEBUG_PAYLOADS=true` to enable:
+- Full prompt and spec logging (still sanitized - no cookies/PII)
+- Detailed warning logs with full paths
+- Useful for development and troubleshooting
 
 ## Docker
 
