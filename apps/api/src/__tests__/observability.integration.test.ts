@@ -1,6 +1,6 @@
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { logger } from "../logger.js";
+import * as loggerModule from "../logger.js";
 import { createServer } from "../server.js";
 import * as generatorModule from "../spec/generator.js";
 
@@ -23,17 +23,17 @@ vi.mock("../config/env.js", () => ({
 }));
 
 // Mock logger to capture log calls
-const mockLogger = {
-  info: vi.fn(),
-  warn: vi.fn(),
-  error: vi.fn(),
-  debug: vi.fn(),
-  child: vi.fn().mockReturnThis(),
-};
-
-vi.mock("../logger.js", () => ({
-  logger: mockLogger,
-}));
+vi.mock("../logger.js", () => {
+  return {
+    logger: {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn(),
+      child: vi.fn().mockReturnThis(),
+    },
+  };
+});
 
 // Mock pino-http to avoid actual logging
 vi.mock("pino-http", () => ({
@@ -102,6 +102,12 @@ describe("Observability Integration Tests", () => {
       .expect(200);
 
     // Verify that logger calls don't contain sensitive data
+    const mockLogger = loggerModule.logger as {
+      info: ReturnType<typeof vi.fn>;
+      warn: ReturnType<typeof vi.fn>;
+      error: ReturnType<typeof vi.fn>;
+      debug: ReturnType<typeof vi.fn>;
+    };
     const allLogCalls = [
       ...mockLogger.info.mock.calls,
       ...mockLogger.warn.mock.calls,

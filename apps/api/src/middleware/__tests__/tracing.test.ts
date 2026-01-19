@@ -33,25 +33,33 @@ describe("tracingMiddleware", () => {
   });
 
   it("sets up tracing context with requestId as traceId", () => {
-    tracingMiddleware(mockReq as Request, mockRes as Response, mockNext);
+    let capturedContext: ReturnType<typeof getTracingContext>;
+    const nextWithContextCheck = vi.fn(() => {
+      capturedContext = getTracingContext();
+    });
 
-    const context = getTracingContext();
-    expect(context).toBeDefined();
-    expect(context?.traceId).toBe("test-request-id");
-    expect(context?.projectId).toBe("test-project");
-    expect(context?.userId).toBe("test-user-id");
-    expect(mockNext).toHaveBeenCalled();
+    tracingMiddleware(mockReq as Request, mockRes as Response, nextWithContextCheck);
+
+    expect(capturedContext).toBeDefined();
+    expect(capturedContext?.traceId).toBe("test-request-id");
+    expect(capturedContext?.projectId).toBe("test-project");
+    expect(capturedContext?.userId).toBe("test-user-id");
+    expect(nextWithContextCheck).toHaveBeenCalled();
   });
 
   it("generates new traceId if requestId is not present", () => {
     mockReq.id = undefined;
-    tracingMiddleware(mockReq as Request, mockRes as Response, mockNext);
+    let capturedContext: ReturnType<typeof getTracingContext>;
+    const nextWithContextCheck = vi.fn(() => {
+      capturedContext = getTracingContext();
+    });
 
-    const context = getTracingContext();
-    expect(context).toBeDefined();
-    expect(context?.traceId).toBeDefined();
-    expect(typeof context?.traceId).toBe("string");
-    expect(context?.traceId.length).toBeGreaterThan(0);
+    tracingMiddleware(mockReq as Request, mockRes as Response, nextWithContextCheck);
+
+    expect(capturedContext).toBeDefined();
+    expect(capturedContext?.traceId).toBeDefined();
+    expect(typeof capturedContext?.traceId).toBe("string");
+    expect(capturedContext?.traceId.length).toBeGreaterThan(0);
   });
 
   it("sets traceId and requestId on request object", () => {
